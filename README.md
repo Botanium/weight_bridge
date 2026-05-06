@@ -1,0 +1,78 @@
+# Weight Bridge
+
+Weight Bridge is a Frappe/ERPNext v15 app for recording truck weighbridge tickets.
+It supports one form for incoming and outgoing cargo movements and calculates the
+ticket direction from first and second weight values.
+
+## Features
+
+- Single DocType: `Weight Bridge Ticket`
+- Provisional IDs such as `WB-260506-01` on first weighing
+- Final IDs such as `IN-260506-01` or `OUT-260506-01` after second weighing
+- Direction, gross weight, vehicle/tare weight, and net weight calculated server-side
+- Cargo linked to ERPNext `Item`
+- Origin and destination linked dynamically to `Supplier`, `Customer`, or `Warehouse`
+- Install seed data for `VR`, `Bitumen 40/50`, and `Bitumen 60/70`
+- Manual weight entry for v1; serial port reading is not included yet
+
+## Local Bench Installation
+
+```bash
+cd $PATH_TO_YOUR_BENCH
+bench get-app https://github.com/Botanium/weight_bridge --branch version-15
+bench --site $SITE_NAME install-app weight_bridge
+bench --site $SITE_NAME migrate
+```
+
+## Frappe Cloud Installation
+
+Use a Frappe Cloud bench group on version 15. Add this app repository and select
+the `version-15` branch. The app declares its Frappe compatibility in
+`pyproject.toml`:
+
+```toml
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+```
+
+After validation, deploy the bench group and install `weight_bridge` on the test
+site before deploying to production.
+
+## Local Docker Stack Used During Development
+
+This repository was tested against the local Docker stack:
+
+- Frappe `15.73.0`
+- ERPNext `15.67.0`
+- Site name `frontend`
+- Local URL `http://localhost:8080`
+
+The local Docker image and compose override are kept outside the app repository
+because they are machine-specific.
+
+## Ticket Logic
+
+When only the first weight is entered, the ticket remains `Pending Second Weight`
+and receives a provisional `WB-YYMMDD-##` ID.
+
+When the second weight is entered:
+
+- If `first_weight > second_weight`, direction is `IN`
+- If `second_weight > first_weight`, direction is `OUT`
+- Gross weight is the larger weight
+- Vehicle/tare weight is the smaller weight
+- Net weight is the difference
+- Equal weights are rejected
+
+After the final `IN` or `OUT` ID is generated, the weighing fields that determine
+the ticket ID and direction are locked.
+
+## Tests
+
+```bash
+bench --site $SITE_NAME run-tests --app weight_bridge
+```
+
+## License
+
+mit

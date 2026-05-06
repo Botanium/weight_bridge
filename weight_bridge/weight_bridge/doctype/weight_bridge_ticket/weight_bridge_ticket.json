@@ -1,0 +1,237 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-05-06 00:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "Document",
+ "engine": "InnoDB",
+ "field_order": [
+  "truck_details_section",
+  "plate_number",
+  "driver_name",
+  "operator",
+  "cargo_section",
+  "cargo_item",
+  "origin_type",
+  "origin",
+  "destination_type",
+  "destination",
+  "weighing_section",
+  "first_weight_datetime",
+  "first_weight",
+  "column_break_first",
+  "second_weight_datetime",
+  "second_weight",
+  "calculated_weights_section",
+  "direction",
+  "ticket_status",
+  "gross_weight",
+  "vehicle_weight",
+  "net_weight",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "truck_details_section",
+   "fieldtype": "Section Break",
+   "label": "Truck Details"
+  },
+  {
+   "fieldname": "plate_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Plate Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Driver Name",
+   "reqd": 1
+  },
+  {
+   "default": "user",
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Operator",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cargo_section",
+   "fieldtype": "Section Break",
+   "label": "Cargo"
+  },
+  {
+   "fieldname": "cargo_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cargo Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "origin_type",
+   "fieldtype": "Select",
+   "label": "Origin Type",
+   "options": "Supplier\nCustomer\nWarehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Origin",
+   "options": "origin_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination_type",
+   "fieldtype": "Select",
+   "label": "Destination Type",
+   "options": "Supplier\nCustomer\nWarehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Destination",
+   "options": "destination_type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "weighing_section",
+   "fieldtype": "Section Break",
+   "label": "Weighing"
+  },
+  {
+   "fieldname": "first_weight_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "First Weight Date and Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "first_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "First Weight (Kg)",
+   "precision": "3",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_first",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "second_weight_datetime",
+   "fieldtype": "Datetime",
+   "label": "Second Weight Date and Time"
+  },
+  {
+   "fieldname": "second_weight",
+   "fieldtype": "Float",
+   "label": "Second Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "calculated_weights_section",
+   "fieldtype": "Section Break",
+   "label": "Calculated Weights"
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Direction",
+   "options": "\nIN\nOUT",
+   "read_only": 1
+  },
+  {
+   "default": "Pending Second Weight",
+   "fieldname": "ticket_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Ticket Status",
+   "options": "Pending Second Weight\nFinalized",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Gross Weight (Kg)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vehicle_weight",
+   "fieldtype": "Float",
+   "label": "Vehicle/Tare Weight (Kg)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Net Weight (Kg)",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Weight Bridge Ticket",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "icon": "fa fa-truck",
+ "idx": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-05-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Weight Bridge",
+ "name": "Weight Bridge Ticket",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "search_fields": "plate_number,driver_name,cargo_item,direction,ticket_status",
+ "show_name_in_global_search": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "plate_number",
+ "track_changes": 1
+}
