@@ -8,16 +8,35 @@ WEIGHT_BRIDGE_ITEMS = (
 	("Bitumen 60/70", "Bitumen 60/70"),
 )
 WEIGHT_BRIDGE_ROLES = ("Weight Bridge Operator", "Weight Bridge Supervisor")
-WEIGHT_BRIDGE_TICKET = "Weight Bridge Ticket"
+WEIGHT_BRIDGE_TRANSACTION_DOCTYPES = (
+	"Weight Bridge Ticket",
+	"Weight Bridge Truck",
+	"Weight Bridge Driver",
+)
+WEIGHT_BRIDGE_SETTINGS_DOCTYPES = ("Weight Bridge Settings",)
+WEIGHT_BRIDGE_SETTINGS_DEFAULTS = {
+	"min_first_weight_kg": 1,
+	"min_second_weight_kg": 1,
+	"min_net_weight_kg": 1,
+	"max_gross_weight_kg": 0,
+	"max_net_weight_kg": 0,
+	"require_second_weight_after_first": 1,
+	"require_purchase_order_for_in": 0,
+	"require_sales_order_for_out": 0,
+}
 
 
 def after_install():
 	seed_master_data()
+	ensure_weight_bridge_settings()
+	ensure_weight_bridge_workspace()
 	ensure_roles_and_permissions()
 
 
 def before_tests():
 	seed_master_data()
+	ensure_weight_bridge_settings()
+	ensure_weight_bridge_workspace()
 	ensure_roles_and_permissions()
 
 
@@ -87,37 +106,100 @@ def ensure_roles_and_permissions():
 	for role in WEIGHT_BRIDGE_ROLES:
 		ensure_role(role)
 
-	if not frappe.db.exists("DocType", WEIGHT_BRIDGE_TICKET):
+	for doctype in WEIGHT_BRIDGE_TRANSACTION_DOCTYPES:
+		if not frappe.db.exists("DocType", doctype):
+			continue
+
+		ensure_custom_permission(
+			doctype,
+			"Weight Bridge Operator",
+			{
+				"read": 1,
+				"write": 1,
+				"create": 1,
+				"email": 1,
+				"print": 1,
+				"report": 1,
+				"share": 1,
+			},
+		)
+		ensure_custom_permission(
+			doctype,
+			"Weight Bridge Supervisor",
+			{
+				"read": 1,
+				"write": 1,
+				"create": 1,
+				"email": 1,
+				"print": 1,
+				"report": 1,
+				"share": 1,
+				"submit": 1 if doctype == "Weight Bridge Ticket" else 0,
+				"cancel": 1 if doctype == "Weight Bridge Ticket" else 0,
+				"amend": 1 if doctype == "Weight Bridge Ticket" else 0,
+			},
+		)
+		frappe.clear_cache(doctype=doctype)
+
+	for doctype in WEIGHT_BRIDGE_SETTINGS_DOCTYPES:
+		if not frappe.db.exists("DocType", doctype):
+			continue
+
+		ensure_custom_permission(
+			doctype,
+			"Weight Bridge Operator",
+			{
+				"read": 1,
+			},
+		)
+		ensure_custom_permission(
+			doctype,
+			"Weight Bridge Supervisor",
+			{
+				"read": 1,
+				"write": 1,
+				"email": 1,
+				"print": 1,
+				"report": 1,
+				"share": 1,
+			},
+		)
+		frappe.clear_cache(doctype=doctype)
+
+
+def ensure_weight_bridge_settings():
+	if not frappe.db.exists("DocType", "Weight Bridge Settings"):
 		return
 
-	ensure_custom_permission(
-		"Weight Bridge Operator",
+	settings = frappe.get_single("Weight Bridge Settings")
+	changed = False
+	for fieldname, value in WEIGHT_BRIDGE_SETTINGS_DEFAULTS.items():
+		if settings.get(fieldname) in (None, ""):
+			settings.set(fieldname, value)
+			changed = True
+
+	if changed:
+		settings.save(ignore_permissions=True)
+
+	frappe.clear_cache(doctype="Weight Bridge Settings")
+
+
+def ensure_weight_bridge_workspace():
+	if not frappe.db.exists("Workspace", "Weight Bridge"):
+		return
+
+	frappe.db.set_value(
+		"Workspace",
+		"Weight Bridge",
 		{
-			"read": 1,
-			"write": 1,
-			"create": 1,
-			"email": 1,
-			"print": 1,
-			"report": 1,
-			"share": 1,
+			"icon": "weight-bridge",
+			"public": 1,
+			"is_hidden": 0,
+			"sequence_id": 8.5,
 		},
+		update_modified=False,
 	)
-	ensure_custom_permission(
-		"Weight Bridge Supervisor",
-		{
-			"read": 1,
-			"write": 1,
-			"create": 1,
-			"email": 1,
-			"print": 1,
-			"report": 1,
-			"share": 1,
-			"submit": 1,
-			"cancel": 1,
-			"amend": 1,
-		},
-	)
-	frappe.clear_cache(doctype=WEIGHT_BRIDGE_TICKET)
+	frappe.clear_cache()
 
 
 def ensure_role(role_name):
@@ -133,14 +215,14 @@ def ensure_role(role_name):
 	).insert(ignore_permissions=True)
 
 
-def ensure_custom_permission(role, flags):
+def ensure_custom_permission(doctype, role, flags):
 	from frappe.permissions import setup_custom_perms
 
-	setup_custom_perms(WEIGHT_BRIDGE_TICKET)
+	setup_custom_perms(doctype)
 	name = frappe.db.get_value(
 		"Custom DocPerm",
 		{
-			"parent": WEIGHT_BRIDGE_TICKET,
+			"parent": doctype,
 			"role": role,
 			"permlevel": 0,
 			"if_owner": 0,
@@ -153,7 +235,7 @@ def ensure_custom_permission(role, flags):
 		docperm = frappe.get_doc(
 			{
 				"doctype": "Custom DocPerm",
-				"parent": WEIGHT_BRIDGE_TICKET,
+				"parent": doctype,
 				"parenttype": "DocType",
 				"parentfield": "permissions",
 				"role": role,

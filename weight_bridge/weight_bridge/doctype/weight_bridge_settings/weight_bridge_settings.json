@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_copy": 0,
+ "allow_import": 0,
+ "allow_rename": 0,
+ "creation": "2026-05-07 00:00:00.000000",
+ "doctype": "DocType",
+ "document_type": "Setup",
+ "engine": "InnoDB",
+ "field_order": [
+  "weight_validation_section",
+  "min_first_weight_kg",
+  "min_second_weight_kg",
+  "min_net_weight_kg",
+  "validation_column_break",
+  "max_gross_weight_kg",
+  "max_net_weight_kg",
+  "require_second_weight_after_first",
+  "order_reference_section",
+  "require_purchase_order_for_in",
+  "require_sales_order_for_out"
+ ],
+ "fields": [
+  {
+   "fieldname": "weight_validation_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Validation"
+  },
+  {
+   "default": "1",
+   "description": "Minimum accepted first weight. Use 0 to allow any positive value.",
+   "fieldname": "min_first_weight_kg",
+   "fieldtype": "Float",
+   "label": "Minimum First Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "default": "1",
+   "description": "Minimum accepted second weight. Use 0 to allow any positive value.",
+   "fieldname": "min_second_weight_kg",
+   "fieldtype": "Float",
+   "label": "Minimum Second Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "default": "1",
+   "description": "Minimum accepted net weight after both weights are entered.",
+   "fieldname": "min_net_weight_kg",
+   "fieldtype": "Float",
+   "label": "Minimum Net Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "fieldname": "validation_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Maximum accepted gross weight. Leave 0 for no maximum.",
+   "fieldname": "max_gross_weight_kg",
+   "fieldtype": "Float",
+   "label": "Maximum Gross Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "default": "0",
+   "description": "Maximum accepted net weight. Leave 0 for no maximum.",
+   "fieldname": "max_net_weight_kg",
+   "fieldtype": "Float",
+   "label": "Maximum Net Weight (Kg)",
+   "precision": "3"
+  },
+  {
+   "default": "1",
+   "description": "Reject tickets when the second weighing date and time is before the first weighing date and time.",
+   "fieldname": "require_second_weight_after_first",
+   "fieldtype": "Check",
+   "label": "Require Second Weight After First Weight"
+  },
+  {
+   "fieldname": "order_reference_section",
+   "fieldtype": "Section Break",
+   "label": "Order Reference Validation"
+  },
+  {
+   "default": "0",
+   "description": "Require a Purchase Order when direction is IN.",
+   "fieldname": "require_purchase_order_for_in",
+   "fieldtype": "Check",
+   "label": "Require Purchase Order for IN Tickets"
+  },
+  {
+   "default": "0",
+   "description": "Require a Sales Order when direction is OUT.",
+   "fieldname": "require_sales_order_for_out",
+   "fieldtype": "Check",
+   "label": "Require Sales Order for OUT Tickets"
+  }
+ ],
+ "hide_heading": 0,
+ "idx": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-05-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Weight Bridge",
+ "name": "Weight Bridge Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Weight Bridge Supervisor",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Weight Bridge Operator"
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -51,7 +51,7 @@ required_apps = ["erpnext"]
 # Svg Icons
 # ------------------
 # include app icons in desk
-# app_include_icons = "weight_bridge/public/icons.svg"
+app_include_icons = "weight_bridge/public/icons.svg"
 
 # Home Pages
 # ----------

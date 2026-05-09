@@ -1,0 +1,182 @@
+{
+ "app": "weight_bridge",
+ "charts": [],
+ "content": "[{\"id\":\"wb_header_shortcuts\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\",\"col\":12}},{\"id\":\"wb_ticket_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weight Bridge Ticket\",\"col\":3}},{\"id\":\"wb_truck_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weight Bridge Truck\",\"col\":3}},{\"id\":\"wb_driver_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weight Bridge Driver\",\"col\":3}},{\"id\":\"wb_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weight Bridge Settings\",\"col\":3}},{\"id\":\"wb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"wb_header_reports\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"wb_card_operations\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"wb_card_masters\",\"type\":\"card\",\"data\":{\"card_name\":\"Masters\",\"col\":4}},{\"id\":\"wb_card_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"wb_card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "creation": "2026-05-07 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "weight-bridge",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Weight Bridge",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weight Bridge Ticket",
+   "link_count": 0,
+   "link_to": "Weight Bridge Ticket",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Masters",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weight Bridge Truck",
+   "link_count": 0,
+   "link_to": "Weight Bridge Truck",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weight Bridge Driver",
+   "link_count": 0,
+   "link_to": "Weight Bridge Driver",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cargo Items",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "Weight Bridge Ticket",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Weight Bridge Ticket Register",
+   "link_count": 0,
+   "link_to": "Weight Bridge Ticket Register",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Weight Bridge Ticket",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Daily Weight Bridge Summary",
+   "link_count": 0,
+   "link_to": "Daily Weight Bridge Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Weight Bridge Ticket",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Weight Bridge Order Summary",
+   "link_count": 0,
+   "link_to": "Weight Bridge Order Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Settings",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Weight Bridge Settings",
+   "link_count": 0,
+   "link_to": "Weight Bridge Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-05-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Weight Bridge",
+ "name": "Weight Bridge",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 8.5,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Weight Bridge Ticket",
+   "link_to": "Weight Bridge Ticket",
+   "stats_filter": "{\"ticket_status\":[\"=\",\"Pending Second Weight\"]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Weight Bridge Truck",
+   "link_to": "Weight Bridge Truck",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Weight Bridge Driver",
+   "link_to": "Weight Bridge Driver",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Weight Bridge Settings",
+   "link_to": "Weight Bridge Settings",
+   "type": "DocType"
+  }
+ ],
+ "title": "Weight Bridge",
+ "type": "Workspace"
+}

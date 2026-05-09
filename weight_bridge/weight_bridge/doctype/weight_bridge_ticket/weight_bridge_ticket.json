@@ -9,10 +9,18 @@
  "field_order": [
   "truck_details_section",
   "plate_number",
+  "driver",
+  "truck_details_column_2",
   "driver_name",
+  "driver_passport_number",
+  "truck_details_column_3",
+  "driver_national_code",
   "operator",
   "cargo_section",
   "cargo_item",
+  "purchase_order",
+  "sales_order",
+  "cargo_column_2",
   "origin_type",
   "origin",
   "destination_type",
@@ -39,18 +47,52 @@
   },
   {
    "fieldname": "plate_number",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Plate Number",
+   "options": "Weight Bridge Truck",
    "reqd": 1
   },
   {
+   "fieldname": "driver",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Driver Phone Number",
+   "options": "Weight Bridge Driver",
+   "reqd": 1
+  },
+  {
+   "fieldname": "truck_details_column_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "driver.driver_name",
    "fieldname": "driver_name",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Driver Name",
+   "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fetch_from": "driver.passport_number",
+   "fieldname": "driver_passport_number",
+   "fieldtype": "Data",
+   "label": "Passport Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "truck_details_column_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "driver.national_code",
+   "fieldname": "driver_national_code",
+   "fieldtype": "Data",
+   "label": "National Code",
+   "read_only": 1
   },
   {
    "default": "user",
@@ -74,6 +116,24 @@
    "label": "Cargo Item",
    "options": "Item",
    "reqd": 1
+  },
+  {
+   "fieldname": "purchase_order",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Purchase Order",
+   "options": "Purchase Order"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "cargo_column_2",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "origin_type",
@@ -202,7 +262,7 @@
  "idx": 0,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-06 00:00:00.000000",
+ "modified": "2026-05-07 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Weight Bridge",
  "name": "Weight Bridge Ticket",
@@ -227,7 +287,7 @@
   }
  ],
  "quick_entry": 0,
- "search_fields": "plate_number,driver_name,cargo_item,direction,ticket_status",
+ "search_fields": "plate_number,driver,driver_name,cargo_item,purchase_order,sales_order,direction,ticket_status",
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
