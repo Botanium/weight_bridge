@@ -26,7 +26,7 @@ required_apps = ["erpnext"]
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/weight_bridge/css/weight_bridge.css"
-# app_include_js = "/assets/weight_bridge/js/weight_bridge.js"
+app_include_js = ["/assets/weight_bridge/js/serial_scale.js"]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/weight_bridge/css/weight_bridge.css"

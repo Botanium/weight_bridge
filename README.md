@@ -16,6 +16,7 @@ ticket direction from first and second weight values.
 - Reports: `Weight Bridge Ticket Register`, `Daily Weight Bridge Summary`, and `Weight Bridge Order Summary`
 - Ticket plate number is selected from saved trucks
 - Ticket driver phone number fetches driver name, passport number, and national code as read-only details
+- Client-side Web Serial scale reading from Chrome/Edge, with no custom API or service layer
 - Provisional IDs such as `WB-260506-01` on first weighing
 - Final IDs such as `IN-260506-01` or `OUT-260506-01` after second weighing
 - Direction, gross weight, vehicle/tare weight, and net weight calculated server-side
@@ -89,6 +90,28 @@ operations.
 The built-in reports cover detailed ticket history, daily totals by cargo and
 direction, and truck totals grouped by Purchase Order or Sales Order.
 
+## Client-Side Serial Scale Reading
+
+`Weight Bridge Ticket` includes a `Scale Port` panel above the weighing section.
+The operator can open a serial port, watch the latest scale reading, copy the
+reading into `First Weight` or `Second Weight`, and close the port.
+
+![Weight Bridge serial port panel](docs/screenshots/weight-bridge-ticket-serial.png)
+
+This uses the browser Web Serial API only. The app does not create a local
+service, backend API, socket bridge, or server-side serial reader. The serial
+device must be connected to the same computer that is running the browser.
+
+Browser requirements:
+
+- Chrome or Edge with Web Serial support
+- HTTPS on hosted sites, such as Frappe Cloud
+- `localhost` is supported for local Docker testing
+
+The default port settings are `9600` baud, `8` data bits, `1` stop bit, no
+parity, and no flow control. The baud rate can be changed in the form and is
+remembered in the browser's local storage for that user/computer.
+
 ## Ticket Logic
 
 When only the first weight is entered, the ticket remains `Pending Second Weight`
@@ -118,6 +141,7 @@ the ticket ID and direction are locked.
 
 ```bash
 bench --site $SITE_NAME run-tests --app weight_bridge
+npm run test:serial
 ```
 
 ## License

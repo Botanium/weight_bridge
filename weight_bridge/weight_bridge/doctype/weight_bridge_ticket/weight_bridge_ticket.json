@@ -25,6 +25,8 @@
   "origin",
   "destination_type",
   "destination",
+  "scale_port_section",
+  "serial_port_status_html",
   "weighing_section",
   "first_weight_datetime",
   "first_weight",
@@ -164,6 +166,16 @@
    "label": "Destination",
    "options": "destination_type",
    "reqd": 1
+  },
+  {
+   "fieldname": "scale_port_section",
+   "fieldtype": "Section Break",
+   "label": "Scale Port"
+  },
+  {
+   "fieldname": "serial_port_status_html",
+   "fieldtype": "HTML",
+   "label": "Scale Port"
   },
   {
    "fieldname": "weighing_section",

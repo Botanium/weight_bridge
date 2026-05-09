@@ -120,7 +120,7 @@ class TestWeightBridgeTicket(FrappeTestCase):
 
 		self.assertEqual(meta.get_field("cargo_column_2").fieldtype, "Column Break")
 		self.assertEqual(
-			self._field_order_between(meta, "cargo_section", "weighing_section"),
+			self._field_order_between(meta, "cargo_section", "scale_port_section"),
 			[
 				"cargo_item",
 				"purchase_order",
@@ -132,6 +132,22 @@ class TestWeightBridgeTicket(FrappeTestCase):
 				"destination",
 			],
 		)
+
+	def test_weighing_section_has_client_serial_port_panel(self):
+		meta = frappe.get_meta("Weight Bridge Ticket")
+		field_order = [field.fieldname for field in meta.fields]
+
+		self.assertEqual(meta.get_field("scale_port_section").fieldtype, "Section Break")
+		self.assertEqual(meta.get_field("serial_port_status_html").fieldtype, "HTML")
+		self.assertGreater(field_order.index("serial_port_status_html"), field_order.index("scale_port_section"))
+		self.assertLess(field_order.index("serial_port_status_html"), field_order.index("weighing_section"))
+
+	def test_weight_bridge_includes_client_serial_asset(self):
+		from weight_bridge import hooks
+
+		app_include_js = hooks.app_include_js if isinstance(hooks.app_include_js, list) else [hooks.app_include_js]
+
+		self.assertIn("/assets/weight_bridge/js/serial_scale.js", app_include_js)
 
 	def test_weight_bridge_workspace_is_public_and_ordered_after_manufacturing(self):
 		workspace = frappe.get_doc("Workspace", "Weight Bridge")

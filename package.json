@@ -1,0 +1,7 @@
+{
+  "name": "weight_bridge_client_tests",
+  "private": true,
+  "scripts": {
+    "test:serial": "node --test tests/*.test.js"
+  }
+}
