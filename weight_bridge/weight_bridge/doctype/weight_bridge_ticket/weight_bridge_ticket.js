@@ -1,5 +1,10 @@
-const WEIGHT_BRIDGE_SERIAL_BAUD_RATE_KEY = "weight_bridge.scale_baud_rate";
-const WEIGHT_BRIDGE_DEFAULT_BAUD_RATE = 9600;
+const WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS = {
+	auto_connect_scale: 1,
+	serial_baud_rate: 9600,
+	stable_reading_count: 3,
+	stable_status_codes: "A",
+	stability_tolerance_kg: 0.001,
+};
 
 frappe.ui.form.on("Weight Bridge Ticket", {
 	setup(frm) {
@@ -54,7 +59,6 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 	},
 
 	refresh(frm) {
-		const finalized = frm.doc.name && !frm.doc.__islocal && !frm.doc.name.startsWith("WB-");
 		const protected_fields = [
 			"first_weight_datetime",
 			"second_weight_datetime",
@@ -62,17 +66,20 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 			"second_weight",
 		];
 
-		protected_fields.forEach((fieldname) => frm.set_df_property(fieldname, "read_only", finalized ? 1 : 0));
+		protected_fields.forEach((fieldname) => frm.set_df_property(fieldname, "read_only", 1));
+		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
-		render_serial_port_controls(frm);
+		initialize_scale_connection(frm);
 	},
 
 	first_weight(frm) {
 		set_order_reference_visibility(frm);
+		set_dynamic_weight_labels(frm);
 	},
 
 	second_weight(frm) {
 		set_order_reference_visibility(frm);
+		set_dynamic_weight_labels(frm);
 	},
 
 	direction(frm) {
@@ -148,116 +155,6 @@ function clear_sales_order_if_customer_changed(frm) {
 	}
 }
 
-function render_serial_port_controls(frm) {
-	const field = frm.get_field("serial_port_status_html");
-	if (!field?.$wrapper) {
-		return;
-	}
-
-	const controller = ensure_serial_scale_controller(frm);
-	const latest_reading = controller?.getLatestReading();
-	const baud_rate = get_stored_baud_rate();
-	const unsupported = controller && !controller.isSupported();
-
-	field.$wrapper.closest(".frappe-control").removeClass("input-max-width").css("max-width", "none");
-	field.$wrapper.html(`
-		<div class="weight-bridge-serial-panel" data-weight-bridge-serial-panel>
-			<style>
-				.weight-bridge-serial-panel {
-					border: 1px solid var(--border-color);
-					border-radius: 8px;
-					margin-bottom: 12px;
-					padding: 12px;
-				}
-				.weight-bridge-serial-grid {
-					align-items: end;
-					display: grid;
-					gap: 12px;
-					grid-template-columns: minmax(180px, 1fr) minmax(120px, 160px) auto;
-				}
-				.weight-bridge-serial-actions {
-					display: flex;
-					flex-wrap: wrap;
-					gap: 8px;
-					justify-content: flex-end;
-				}
-				.weight-bridge-serial-meta {
-					display: flex;
-					flex-wrap: wrap;
-					gap: 12px;
-					margin-top: 10px;
-				}
-				.weight-bridge-serial-raw {
-					font-family: var(--font-stack-monospace);
-					max-width: 100%;
-					overflow: hidden;
-					text-overflow: ellipsis;
-					white-space: nowrap;
-				}
-				@media (max-width: 767px) {
-					.weight-bridge-serial-grid {
-						grid-template-columns: 1fr;
-					}
-					.weight-bridge-serial-actions {
-						justify-content: flex-start;
-					}
-				}
-			</style>
-			<div class="weight-bridge-serial-grid">
-				<div>
-					<div class="text-muted small">${__("Scale Port")}</div>
-					<div>
-						<strong data-weight-bridge-serial-status>${escape_html(get_serial_status_label(controller))}</strong>
-					</div>
-					<div class="text-muted small">${__("Latest Weight")}: <span data-weight-bridge-serial-weight>${escape_html(format_serial_weight(latest_reading))}</span></div>
-				</div>
-				<div>
-					<label class="control-label small" for="weight-bridge-serial-baud-rate">${__("Baud Rate")}</label>
-					<input
-						class="form-control input-sm"
-						data-weight-bridge-serial-baud-rate
-						id="weight-bridge-serial-baud-rate"
-						inputmode="numeric"
-						min="1"
-						type="number"
-						value="${escape_html(baud_rate)}"
-					>
-				</div>
-				<div class="weight-bridge-serial-actions">
-					<button class="btn btn-xs btn-default" data-weight-bridge-serial-action="open" type="button">${__("Open Port")}</button>
-					<button class="btn btn-xs btn-default" data-weight-bridge-serial-action="capture-first" type="button">${__("Read First Weight")}</button>
-					<button class="btn btn-xs btn-default" data-weight-bridge-serial-action="capture-second" type="button">${__("Read Second Weight")}</button>
-					<button class="btn btn-xs btn-default" data-weight-bridge-serial-action="close" type="button">${__("Close Port")}</button>
-				</div>
-			</div>
-			<div class="weight-bridge-serial-meta text-muted small">
-				<span>${__("Scale Status")}: <span data-weight-bridge-serial-scale-status>${escape_html(format_status_code(latest_reading))}</span></span>
-				<span>${__("Raw")}: <span class="weight-bridge-serial-raw" data-weight-bridge-serial-raw>${escape_html(format_raw_chunk(latest_reading))}</span></span>
-			</div>
-			${unsupported ? `<div class="text-muted small margin-top">${__("Web Serial requires Chrome or Edge over HTTPS, or localhost during local testing.")}</div>` : ""}
-		</div>
-	`);
-
-	bind_serial_port_controls(frm);
-	update_serial_port_controls(frm);
-}
-
-function bind_serial_port_controls(frm) {
-	const wrapper = frm.get_field("serial_port_status_html")?.$wrapper;
-	if (!wrapper) {
-		return;
-	}
-
-	wrapper.find("[data-weight-bridge-serial-action='open']").on("click", () => open_serial_port(frm));
-	wrapper.find("[data-weight-bridge-serial-action='close']").on("click", () => close_serial_port(frm));
-	wrapper.find("[data-weight-bridge-serial-action='capture-first']").on("click", () => capture_serial_weight(frm, "first_weight"));
-	wrapper.find("[data-weight-bridge-serial-action='capture-second']").on("click", () => capture_serial_weight(frm, "second_weight"));
-	wrapper.find("[data-weight-bridge-serial-baud-rate]").on("change", () => {
-		const baud_rate = get_baud_rate_from_form(frm);
-		store_baud_rate(baud_rate);
-	});
-}
-
 function ensure_serial_scale_controller(frm) {
 	const serial_api = window.weight_bridge?.SerialScale;
 	if (!serial_api?.createController) {
@@ -266,22 +163,135 @@ function ensure_serial_scale_controller(frm) {
 
 	if (!frm.weight_bridge_serial_controller) {
 		frm.weight_bridge_serial_controller = serial_api.createController({
-			onReading: () => update_serial_port_controls(frm),
-			onStatusChange: () => update_serial_port_controls(frm),
+			onReading: (reading) => handle_scale_reading(frm, reading),
+			onStatusChange: () => update_scale_status(frm),
 			onError: (error) => {
 				frappe.show_alert({
 					message: __("Scale port error: {0}", [error.message || String(error)]),
 					indicator: "red",
 				});
-				update_serial_port_controls(frm);
+				update_scale_status(frm);
 			},
 		});
+		frm.weight_bridge_stable_state = serial_api.createStableReadingState();
 	}
 
 	return frm.weight_bridge_serial_controller;
 }
 
-async function open_serial_port(frm) {
+function initialize_scale_connection(frm) {
+	const controller = ensure_serial_scale_controller(frm);
+	if (!controller) {
+		show_scale_status(frm, __("Scale script not loaded"), "orange");
+		return;
+	}
+
+	bind_scale_lifecycle(frm);
+	render_scale_toolbar(frm);
+	update_scale_status(frm);
+
+	if (!controller.isSupported()) {
+		show_scale_status(frm, __("Scale unavailable: use Chrome or Edge with HTTPS"), "orange");
+		return;
+	}
+
+	load_scale_settings(frm).then((settings) => {
+		frm.weight_bridge_scale_settings = settings;
+		if (Number(settings.auto_connect_scale) && !controller.isConnected() && !frm.weight_bridge_auto_connect_attempted) {
+			frm.weight_bridge_auto_connect_attempted = true;
+			connect_authorized_scale(frm);
+		}
+		update_scale_status(frm);
+	});
+}
+
+function bind_scale_lifecycle(frm) {
+	const active_frm = window.weight_bridge_active_scale_form;
+	if (active_frm && active_frm !== frm) {
+		close_scale_connection(active_frm, { silent: true }).catch(() => {});
+	}
+
+	window.weight_bridge_active_scale_form = frm;
+
+	if (!window.weight_bridge_scale_global_lifecycle_bound) {
+		window.weight_bridge_scale_global_lifecycle_bound = true;
+		$(window).on("beforeunload.weight_bridge_scale", () => {
+			const active_frm = window.weight_bridge_active_scale_form;
+			if (active_frm) {
+				close_scale_connection(active_frm, { silent: true }).catch(() => {});
+			}
+		});
+
+		if (frappe.router?.on) {
+			frappe.router.on("change", () => {
+				const active_frm = window.weight_bridge_active_scale_form;
+				if (!active_frm) {
+					return;
+				}
+
+				const route = frappe.get_route ? frappe.get_route() : [];
+				const still_on_ticket_form = route?.[0] === "Form" && route?.[1] === "Weight Bridge Ticket";
+				if (!still_on_ticket_form) {
+					close_scale_connection(active_frm, { silent: true }).catch(() => {});
+					window.weight_bridge_active_scale_form = null;
+				}
+			});
+		}
+	}
+
+	if (frm.weight_bridge_scale_lifecycle_bound) {
+		return;
+	}
+
+	frm.weight_bridge_scale_lifecycle_bound = true;
+}
+
+function render_scale_toolbar(frm) {
+	const controller = ensure_serial_scale_controller(frm);
+	const connected = controller?.isConnected();
+	const busy = ["connecting", "selecting", "disconnecting"].includes(controller?.status);
+	const label = connected ? __("Disconnect Scale") : __("Connect Scale");
+	const click_handler = connected ? () => close_scale_connection(frm) : () => connect_scale_with_prompt(frm);
+
+	if (!frm.weight_bridge_scale_button || !$.contains(document, frm.weight_bridge_scale_button[0])) {
+		frm.weight_bridge_scale_button = frm.add_custom_button(label, click_handler);
+		frm.weight_bridge_scale_button.attr("data-weight-bridge-scale-toolbar", "1");
+	} else {
+		frm.weight_bridge_scale_button.text(label).off("click").on("click", click_handler);
+	}
+
+	frm.weight_bridge_scale_button
+		.toggleClass("btn-primary", !connected)
+		.toggleClass("btn-default", connected)
+		.prop("disabled", Boolean(busy));
+}
+
+async function connect_authorized_scale(frm) {
+	const controller = ensure_serial_scale_controller(frm);
+	if (!controller?.isSupported()) {
+		return;
+	}
+
+	try {
+		const connected = await controller.openAuthorized({ baudRate: get_scale_baud_rate(frm) });
+		if (!connected && !frm.weight_bridge_no_authorized_port_alerted) {
+			frm.weight_bridge_no_authorized_port_alerted = true;
+			frappe.show_alert({
+				message: __("No authorized scale port found. Click Connect Scale and select COM3."),
+				indicator: "orange",
+			});
+		}
+	} catch (error) {
+		frappe.show_alert({
+			message: __("Could not auto-connect scale: {0}", [error.message || String(error)]),
+			indicator: "orange",
+		});
+	}
+
+	update_scale_status(frm);
+}
+
+async function connect_scale_with_prompt(frm) {
 	const controller = ensure_serial_scale_controller(frm);
 	if (!controller) {
 		frappe.msgprint(__("The Weight Bridge serial script is not loaded. Please refresh after rebuilding assets."));
@@ -293,11 +303,8 @@ async function open_serial_port(frm) {
 	}
 
 	try {
-		const baud_rate = get_baud_rate_from_form(frm);
-		store_baud_rate(baud_rate);
-		await controller.open({ baudRate: baud_rate });
-		frappe.show_alert({ message: __("Scale port opened."), indicator: "green" });
-		update_serial_port_controls(frm);
+		await controller.open({ baudRate: get_scale_baud_rate(frm) });
+		frappe.show_alert({ message: __("Scale connected."), indicator: "green" });
 	} catch (error) {
 		if (error.name === "NotFoundError") {
 			frappe.show_alert({ message: __("No serial port was selected."), indicator: "orange" });
@@ -305,141 +312,201 @@ async function open_serial_port(frm) {
 		}
 
 		frappe.msgprint({
-			title: __("Could Not Open Scale Port"),
+			title: __("Could Not Connect Scale"),
 			message: error.message || String(error),
 			indicator: "red",
 		});
-		update_serial_port_controls(frm);
 	}
+
+	update_scale_status(frm);
 }
 
-async function close_serial_port(frm) {
+async function close_scale_connection(frm, options = {}) {
 	const controller = ensure_serial_scale_controller(frm);
 	if (!controller) {
 		return;
 	}
 
 	await controller.close();
-	frappe.show_alert({ message: __("Scale port closed."), indicator: "blue" });
-	update_serial_port_controls(frm);
+	if (!options.silent) {
+		frappe.show_alert({ message: __("Scale disconnected."), indicator: "blue" });
+	}
+	update_scale_status(frm);
 }
 
-async function capture_serial_weight(frm, fieldname) {
-	if (is_weight_capture_locked(frm)) {
-		frappe.msgprint(__("This ticket is finalized or submitted, so the weighing fields cannot be changed."));
+function handle_scale_reading(frm, reading) {
+	const serial_api = window.weight_bridge?.SerialScale;
+	if (!serial_api) {
 		return;
 	}
 
-	const controller = ensure_serial_scale_controller(frm);
-	const reading = controller?.getLatestReading();
+	const stable_result = serial_api.updateStableReading(
+		reading,
+		frm.weight_bridge_stable_state,
+		get_scale_settings(frm)
+	);
+	frm.weight_bridge_latest_stable_result = stable_result;
+
+	if (stable_result.stable) {
+		capture_stable_scale_weight(frm, stable_result.reading);
+	}
+
+	update_scale_status(frm);
+}
+
+async function capture_stable_scale_weight(frm, reading) {
+	if (frm.weight_bridge_capturing_scale || is_weight_capture_locked(frm)) {
+		return;
+	}
+
+	const fieldname = get_next_weight_fieldname(frm);
+	if (!fieldname) {
+		return;
+	}
+
 	const weight = Number(reading?.weight);
-
 	if (!Number.isFinite(weight) || weight <= 0) {
-		frappe.msgprint(__("No positive scale reading is available yet. Open the port and wait for the weight to appear."));
 		return;
 	}
 
-	const datetime_fieldname = fieldname === "first_weight" ? "first_weight_datetime" : "second_weight_datetime";
-	await frm.set_value(fieldname, weight);
-	if (!frm.doc[datetime_fieldname]) {
+	frm.weight_bridge_capturing_scale = true;
+	try {
+		const datetime_fieldname = fieldname === "first_weight" ? "first_weight_datetime" : "second_weight_datetime";
+		await frm.set_value(fieldname, weight);
 		await frm.set_value(datetime_fieldname, frappe.datetime.now_datetime());
+		if (fieldname === "first_weight") {
+			frm.weight_bridge_first_weight_captured_this_session = true;
+		}
+		set_dynamic_weight_labels(frm);
+		set_order_reference_visibility(frm);
+		frappe.show_alert({
+			message: __("{0} captured from stable scale reading: {1} Kg. Save the ticket.", [
+				get_field_label(frm, fieldname),
+				format_number(weight),
+			]),
+			indicator: "green",
+		});
+	} finally {
+		frm.weight_bridge_capturing_scale = false;
 	}
-
-	set_order_reference_visibility(frm);
-	frappe.show_alert({
-		message: __("{0} updated from scale: {1} Kg", [get_field_label(frm, fieldname), format_number(weight)]),
-		indicator: "green",
-	});
-}
-
-function update_serial_port_controls(frm) {
-	const wrapper = frm.get_field("serial_port_status_html")?.$wrapper;
-	if (!wrapper?.length) {
-		return;
-	}
-
-	const controller = ensure_serial_scale_controller(frm);
-	const latest_reading = controller?.getLatestReading();
-	const connected = controller?.isConnected();
-	const busy = ["selecting", "disconnecting"].includes(controller?.status);
-	const locked = is_weight_capture_locked(frm);
-	const has_positive_weight = Number(latest_reading?.weight) > 0;
-
-	wrapper.find("[data-weight-bridge-serial-status]").text(get_serial_status_label(controller));
-	wrapper.find("[data-weight-bridge-serial-weight]").text(format_serial_weight(latest_reading));
-	wrapper.find("[data-weight-bridge-serial-scale-status]").text(format_status_code(latest_reading));
-	wrapper.find("[data-weight-bridge-serial-raw]").text(format_raw_chunk(latest_reading));
-	wrapper.find("[data-weight-bridge-serial-action='open']").prop("disabled", busy || connected || !controller?.isSupported());
-	wrapper.find("[data-weight-bridge-serial-action='close']").prop("disabled", busy || !connected);
-	wrapper.find("[data-weight-bridge-serial-action='capture-first']").prop("disabled", locked || !has_positive_weight);
-	wrapper.find("[data-weight-bridge-serial-action='capture-second']").prop("disabled", locked || !has_positive_weight);
-}
-
-function get_serial_status_label(controller) {
-	const status = controller?.status || "not_loaded";
-	const labels = {
-		connected: __("Connected"),
-		disconnected: __("Disconnected"),
-		disconnecting: __("Closing"),
-		error: __("Error"),
-		not_loaded: __("Serial script not loaded"),
-		reading: __("Reading"),
-		selecting: __("Select a serial port"),
-	};
-
-	return labels[status] || status;
 }
 
 function is_weight_capture_locked(frm) {
 	return frm.doc.docstatus !== 0 || (frm.doc.name && !frm.doc.__islocal && !frm.doc.name.startsWith("WB-"));
 }
 
-function get_baud_rate_from_form(frm) {
-	const value = frm.get_field("serial_port_status_html")?.$wrapper?.find("[data-weight-bridge-serial-baud-rate]").val();
-	const baud_rate = Number(value || get_stored_baud_rate());
+function get_next_weight_fieldname(frm) {
+	if (flt(frm.doc.first_weight) <= 0) {
+		return "first_weight";
+	}
+	if (
+		flt(frm.doc.second_weight) <= 0 &&
+		!frm.doc.__islocal &&
+		frm.doc.name &&
+		frm.doc.name.startsWith("WB-") &&
+		!frm.weight_bridge_first_weight_captured_this_session
+	) {
+		return "second_weight";
+	}
 
-	return Number.isFinite(baud_rate) && baud_rate > 0 ? baud_rate : WEIGHT_BRIDGE_DEFAULT_BAUD_RATE;
+	return null;
 }
 
-function get_stored_baud_rate() {
-	try {
-		const baud_rate = Number(window.localStorage?.getItem(WEIGHT_BRIDGE_SERIAL_BAUD_RATE_KEY));
-		return Number.isFinite(baud_rate) && baud_rate > 0 ? baud_rate : WEIGHT_BRIDGE_DEFAULT_BAUD_RATE;
-	} catch (error) {
-		return WEIGHT_BRIDGE_DEFAULT_BAUD_RATE;
+function set_dynamic_weight_labels(frm) {
+	const direction = get_ticket_direction(frm);
+	let first_label = __("First Scale Weight (Kg)");
+	let second_label = __("Second Scale Weight (Kg)");
+
+	if (direction === "IN") {
+		first_label = __("Gross Weight at Entry (Kg)");
+		second_label = __("Vehicle/Tare Weight at Exit (Kg)");
+	} else if (direction === "OUT") {
+		first_label = __("Vehicle/Tare Weight at Entry (Kg)");
+		second_label = __("Gross Weight at Exit (Kg)");
 	}
+
+	frm.set_df_property("first_weight", "label", first_label);
+	frm.set_df_property("second_weight", "label", second_label);
 }
 
-function store_baud_rate(baud_rate) {
-	try {
-		window.localStorage?.setItem(WEIGHT_BRIDGE_SERIAL_BAUD_RATE_KEY, String(baud_rate));
-	} catch (error) {
-		// Browsers can block localStorage in private or restricted contexts.
+function update_scale_status(frm) {
+	const controller = ensure_serial_scale_controller(frm);
+	const latest_reading = controller?.getLatestReading();
+	const stable_result = frm.weight_bridge_latest_stable_result;
+	const labels = {
+		connecting: __("Scale connecting"),
+		connected: __("Scale connected"),
+		disconnected: __("Scale disconnected"),
+		disconnecting: __("Scale disconnecting"),
+		error: __("Scale error"),
+		not_authorized: __("Scale not authorized"),
+		reading: __("Scale reading"),
+		selecting: __("Select scale port"),
+	};
+	const label = labels[controller?.status] || __("Scale unavailable");
+	const color = get_scale_status_color(controller, stable_result);
+	const weight_text = latest_reading ? ` ${format_serial_weight(latest_reading)}` : "";
+	const stable_text = stable_result?.stable ? ` ${__("stable")}` : "";
+	const status_code = latest_reading?.statusCode ? ` ${__("status")} ${escape_html(latest_reading.statusCode)}` : "";
+
+	show_scale_status(frm, `${label}${weight_text}${stable_text}${status_code}`, color);
+	render_scale_toolbar(frm);
+}
+
+function get_scale_status_color(controller, stable_result) {
+	if (!controller?.isSupported() || ["error", "not_authorized"].includes(controller?.status)) {
+		return "orange";
 	}
+	if (controller?.isConnected() && stable_result?.stable) {
+		return "green";
+	}
+	if (controller?.isConnected()) {
+		return "blue";
+	}
+	return "gray";
+}
+
+function show_scale_status(frm, label, color) {
+	frm.dashboard.set_headline(
+		`<span class="indicator ${color}">${escape_html(label)}</span>`,
+		color === "green" ? "green" : ""
+	);
+}
+
+function get_scale_baud_rate(frm) {
+	const baud_rate = Number(get_scale_settings(frm).serial_baud_rate);
+	return Number.isFinite(baud_rate) && baud_rate > 0
+		? baud_rate
+		: WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS.serial_baud_rate;
+}
+
+function get_scale_settings(frm) {
+	return frm.weight_bridge_scale_settings || WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS;
+}
+
+function load_scale_settings(frm) {
+	if (!window.weight_bridge_scale_settings_promise) {
+		window.weight_bridge_scale_settings_promise = frappe.db
+			.get_doc("Weight Bridge Settings", "Weight Bridge Settings")
+			.then((settings) => ({
+				...WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS,
+				...settings,
+			}))
+			.catch(() => WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS);
+	}
+
+	return window.weight_bridge_scale_settings_promise.then((settings) => {
+		frm.weight_bridge_scale_settings = settings;
+		return settings;
+	});
 }
 
 function format_serial_weight(reading) {
 	if (!reading || reading.weight === null || reading.weight === undefined) {
-		return __("No reading yet");
+		return __("no reading");
 	}
 
 	return `${format_number(reading.weight)} Kg`;
-}
-
-function format_status_code(reading) {
-	if (!reading?.statusCode) {
-		return __("No status code");
-	}
-
-	return reading.statusCode;
-}
-
-function format_raw_chunk(reading) {
-	if (!reading?.rawBuffer) {
-		return __("No data yet");
-	}
-
-	return reading.rawBuffer.replace(/\s+/g, " ").trim();
 }
 
 function format_number(value) {

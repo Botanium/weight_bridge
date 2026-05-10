@@ -21,6 +21,11 @@ WEIGHT_BRIDGE_SETTINGS_DEFAULTS = {
 	"max_gross_weight_kg": 0,
 	"max_net_weight_kg": 0,
 	"require_second_weight_after_first": 1,
+	"auto_connect_scale": 1,
+	"serial_baud_rate": 9600,
+	"stable_status_codes": "A",
+	"stable_reading_count": 3,
+	"stability_tolerance_kg": 0.001,
 	"require_purchase_order_for_in": 0,
 	"require_sales_order_for_out": 0,
 }

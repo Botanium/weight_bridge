@@ -64,6 +64,51 @@ test("opens a Web Serial port and reads scale data end to end with a fake stream
 	assert.equal(statuses.at(-1), "disconnected");
 });
 
+test("auto-opens a previously authorized Web Serial port without prompting", async () => {
+	const fakePort = createFakePort(["   70\r", "A "]);
+	let requestedPort = false;
+	const serial = {
+		async getPorts() {
+			return [fakePort];
+		},
+		async requestPort() {
+			requestedPort = true;
+			return fakePort;
+		},
+	};
+	const controller = new SerialScaleController({
+		serial,
+		TextDecoderStream,
+	});
+
+	const connected = await controller.openAuthorized({ baudRate: 9600 });
+	await controller.readLoopPromise;
+
+	assert.equal(connected, true);
+	assert.equal(requestedPort, false);
+	assert.equal(fakePort.openOptions.baudRate, 9600);
+	assert.equal(controller.getLatestReading().weight, 70);
+});
+
+test("reports not authorized when no saved serial port permission exists", async () => {
+	const statuses = [];
+	const serial = {
+		async getPorts() {
+			return [];
+		},
+	};
+	const controller = new SerialScaleController({
+		serial,
+		TextDecoderStream,
+		onStatusChange: (status) => statuses.push(status.status),
+	});
+
+	const connected = await controller.openAuthorized();
+
+	assert.equal(connected, false);
+	assert.equal(statuses.at(-1), "not_authorized");
+});
+
 test("closes an open Web Serial port cleanly", async () => {
 	const fakePort = createFakePort([], { keepOpen: true });
 	const statuses = [];

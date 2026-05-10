@@ -9,3 +9,4 @@ weight_bridge.patches.v0_0_1.seed_master_data
 weight_bridge.patches.v0_0_2.seed_truck_and_driver_masters
 weight_bridge.patches.v0_0_3.ensure_weight_bridge_settings
 weight_bridge.patches.v0_0_4.ensure_weight_bridge_workspace
+weight_bridge.patches.v0_0_5.ensure_scale_settings

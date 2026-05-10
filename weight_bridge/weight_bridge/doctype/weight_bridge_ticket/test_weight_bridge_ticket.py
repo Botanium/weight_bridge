@@ -120,7 +120,7 @@ class TestWeightBridgeTicket(FrappeTestCase):
 
 		self.assertEqual(meta.get_field("cargo_column_2").fieldtype, "Column Break")
 		self.assertEqual(
-			self._field_order_between(meta, "cargo_section", "scale_port_section"),
+			self._field_order_between(meta, "cargo_section", "weighing_section"),
 			[
 				"cargo_item",
 				"purchase_order",
@@ -133,14 +133,17 @@ class TestWeightBridgeTicket(FrappeTestCase):
 			],
 		)
 
-	def test_weighing_section_has_client_serial_port_panel(self):
+	def test_weighing_section_uses_read_only_client_scale_fields(self):
 		meta = frappe.get_meta("Weight Bridge Ticket")
-		field_order = [field.fieldname for field in meta.fields]
 
-		self.assertEqual(meta.get_field("scale_port_section").fieldtype, "Section Break")
-		self.assertEqual(meta.get_field("serial_port_status_html").fieldtype, "HTML")
-		self.assertGreater(field_order.index("serial_port_status_html"), field_order.index("scale_port_section"))
-		self.assertLess(field_order.index("serial_port_status_html"), field_order.index("weighing_section"))
+		self.assertIsNone(meta.get_field("scale_port_section"))
+		self.assertIsNone(meta.get_field("serial_port_status_html"))
+		self.assertEqual(meta.get_field("first_weight_datetime").label, "First Scale Weight Date and Time")
+		self.assertEqual(meta.get_field("second_weight_datetime").label, "Second Scale Weight Date and Time")
+		self.assertEqual(meta.get_field("first_weight").label, "First Scale Weight (Kg)")
+		self.assertEqual(meta.get_field("second_weight").label, "Second Scale Weight (Kg)")
+		for fieldname in ("first_weight_datetime", "second_weight_datetime", "first_weight", "second_weight"):
+			self.assertEqual(meta.get_field(fieldname).read_only, 1)
 
 	def test_weight_bridge_includes_client_serial_asset(self):
 		from weight_bridge import hooks
@@ -183,6 +186,23 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		for fieldname, expected_value in WEIGHT_BRIDGE_SETTINGS_DEFAULTS.items():
 			self.assertIsNotNone(meta.get_field(fieldname))
 			self.assertEqual(settings.get(fieldname), expected_value)
+
+	def test_settings_validate_scale_capture_options(self):
+		settings = frappe.get_single("Weight Bridge Settings")
+
+		settings.serial_baud_rate = 0
+		with self.assertRaises(frappe.ValidationError):
+			settings.save(ignore_permissions=True)
+
+		settings.reload()
+		settings.stable_reading_count = 0
+		with self.assertRaises(frappe.ValidationError):
+			settings.save(ignore_permissions=True)
+
+		settings.reload()
+		settings.stability_tolerance_kg = -0.1
+		with self.assertRaises(frappe.ValidationError):
+			settings.save(ignore_permissions=True)
 
 	def test_settings_can_limit_maximum_gross_weight(self):
 		self._set_settings(max_gross_weight_kg=1000)

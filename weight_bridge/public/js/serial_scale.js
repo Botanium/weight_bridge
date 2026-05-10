@@ -16,6 +16,9 @@
 	const DEFAULT_PARITY = "none";
 	const DEFAULT_FLOW_CONTROL = "none";
 	const MAX_BUFFER_LENGTH = 256;
+	const DEFAULT_STABLE_READING_COUNT = 3;
+	const DEFAULT_STABILITY_TOLERANCE_KG = 0.001;
+	const DEFAULT_STABLE_STATUS_CODES = ["A"];
 
 	function createParserState() {
 		return {
@@ -111,6 +114,100 @@
 		};
 	}
 
+	function parseStableStatusCodes(value) {
+		if (Array.isArray(value)) {
+			return value.map((code) => String(code).trim().toUpperCase()).filter(Boolean);
+		}
+
+		if (value === undefined || value === null) {
+			return DEFAULT_STABLE_STATUS_CODES;
+		}
+
+		return String(value)
+			.split(/[,\s]+/)
+			.map((code) => code.trim().toUpperCase())
+			.filter(Boolean);
+	}
+
+	function createStableReadingState() {
+		return {
+			lastWeight: null,
+			stableCount: 0,
+			latestStableReading: null,
+		};
+	}
+
+	function resolveStabilityOptions(options) {
+		const stabilityOptions = options || {};
+		const stableReadingCount = Number(
+			stabilityOptions.stableReadingCount || stabilityOptions.stable_reading_count || DEFAULT_STABLE_READING_COUNT
+		);
+		const tolerance = Number(
+			stabilityOptions.stabilityToleranceKg ||
+				stabilityOptions.stability_tolerance_kg ||
+				stabilityOptions.stable_tolerance_kg ||
+				DEFAULT_STABILITY_TOLERANCE_KG
+		);
+
+		return {
+			stableReadingCount:
+				Number.isFinite(stableReadingCount) && stableReadingCount > 0
+					? Math.ceil(stableReadingCount)
+					: DEFAULT_STABLE_READING_COUNT,
+			stabilityToleranceKg:
+				Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : DEFAULT_STABILITY_TOLERANCE_KG,
+			stableStatusCodes: parseStableStatusCodes(
+				stabilityOptions.stableStatusCodes || stabilityOptions.stable_status_codes
+			),
+		};
+	}
+
+	function isStableStatusCode(statusCode, stableStatusCodes) {
+		if (!stableStatusCodes.length) {
+			return true;
+		}
+
+		return stableStatusCodes.includes(String(statusCode || "").trim().toUpperCase());
+	}
+
+	function updateStableReading(reading, state, options) {
+		const stableState = state || createStableReadingState();
+		const stabilityOptions = resolveStabilityOptions(options);
+		const weight = Number(reading?.weight);
+		const statusIsStable = isStableStatusCode(reading?.statusCode, stabilityOptions.stableStatusCodes);
+
+		if (!Number.isFinite(weight) || !statusIsStable) {
+			stableState.stableCount = 0;
+			stableState.latestStableReading = null;
+			return {
+				stable: false,
+				stableCount: stableState.stableCount,
+				requiredStableCount: stabilityOptions.stableReadingCount,
+				reading,
+			};
+		}
+
+		if (
+			stableState.lastWeight !== null &&
+			Math.abs(weight - stableState.lastWeight) <= stabilityOptions.stabilityToleranceKg
+		) {
+			stableState.stableCount += 1;
+		} else {
+			stableState.lastWeight = weight;
+			stableState.stableCount = 1;
+		}
+
+		const stable = stableState.stableCount >= stabilityOptions.stableReadingCount;
+		stableState.latestStableReading = stable ? reading : null;
+
+		return {
+			stable,
+			stableCount: stableState.stableCount,
+			requiredStableCount: stabilityOptions.stableReadingCount,
+			reading,
+		};
+	}
+
 	class SerialScaleController {
 		constructor(options) {
 			const controllerOptions = options || {};
@@ -121,6 +218,7 @@
 			this.onError = controllerOptions.onError || function () {};
 			this.parserState = createParserState();
 			this.status = "disconnected";
+			this.lastStatusDetail = null;
 			this.port = null;
 			this.reader = null;
 			this.decoder = null;
@@ -144,6 +242,7 @@
 
 		setStatus(status, detail) {
 			this.status = status;
+			this.lastStatusDetail = detail || null;
 			this.onStatusChange({
 				status,
 				detail: detail || null,
@@ -156,12 +255,44 @@
 				throw new Error("Web Serial is not supported in this browser. Use Chrome or Edge over HTTPS.");
 			}
 
+			this.setStatus("selecting");
+			const selectedPort = await this.serial.requestPort();
+			await this.openPort(selectedPort, options);
+
+			return this;
+		}
+
+		async openAuthorized(options) {
+			if (!this.isSupported()) {
+				throw new Error("Web Serial is not supported in this browser. Use Chrome or Edge over HTTPS.");
+			}
+			if (!this.serial.getPorts) {
+				this.setStatus("not_authorized", "This browser cannot list previously authorized serial ports.");
+				return false;
+			}
+
+			const ports = await this.serial.getPorts();
+			if (!ports.length) {
+				this.setStatus("not_authorized", "No previously authorized serial port was found.");
+				return false;
+			}
+
+			await this.openPort(ports[0], options);
+			return true;
+		}
+
+		async openPort(port, options) {
+			if (!port) {
+				throw new Error("No serial port was selected.");
+			}
+
 			if (this.port) {
 				await this.close();
 			}
 
-			this.setStatus("selecting");
-			this.port = await this.serial.requestPort();
+			this.setStatus("connecting");
+			this.port = port;
+			this.parserState = createParserState();
 			await this.port.open(resolveOpenOptions(options));
 
 			this.decoder = new this.TextDecoderStream();
@@ -253,13 +384,21 @@
 
 	return {
 		DEFAULT_BAUD_RATE,
+		DEFAULT_STABLE_READING_COUNT,
+		DEFAULT_STABILITY_TOLERANCE_KG,
+		DEFAULT_STABLE_STATUS_CODES,
 		createController,
 		createParserState,
+		createStableReadingState,
 		decodeChunk,
+		isStableStatusCode,
 		normalizeNumberText,
+		parseStableStatusCodes,
 		parseNumber,
 		parseScaleChunk,
 		resolveOpenOptions,
+		resolveStabilityOptions,
+		updateStableReading,
 		SerialScaleController,
 	};
 });

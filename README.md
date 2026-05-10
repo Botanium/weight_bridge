@@ -25,7 +25,7 @@ ticket direction from first and second weight values.
 - Outbound tickets can link to an active submitted ERPNext `Sales Order`
 - Origin and destination linked dynamically to `Supplier`, `Customer`, or `Warehouse`
 - Install seed data for `VR`, `Bitumen 40/50`, and `Bitumen 60/70`
-- Manual weight entry for v1; serial port reading is not included yet
+- Browser-side scale capture from a stable serial reading; no backend scale API or service is required
 
 ## Local Bench Installation
 
@@ -84,6 +84,8 @@ operations.
 - Minimum first, second, and net weights
 - Optional maximum gross and net weights
 - Whether the second weighing must happen after the first weighing
+- Whether the browser should reconnect to an already authorized scale serial port
+- Serial baud rate, stable status codes, stable reading count, and weight tolerance
 - Whether IN tickets require a Purchase Order
 - Whether OUT tickets require a Sales Order
 
@@ -92,11 +94,11 @@ direction, and truck totals grouped by Purchase Order or Sales Order.
 
 ## Client-Side Serial Scale Reading
 
-`Weight Bridge Ticket` includes a `Scale Port` panel above the weighing section.
-The operator can open a serial port, watch the latest scale reading, copy the
-reading into `First Weight` or `Second Weight`, and close the port.
-
-![Weight Bridge serial port panel](docs/screenshots/weight-bridge-ticket-serial.png)
+`Weight Bridge Ticket` adds `Connect Scale` / `Disconnect Scale` actions in the
+form toolbar and shows the scale connection state in the form headline. The
+weighing fields are read-only. When the scale emits the configured number of
+stable readings, the ticket captures the next required weight and the current
+date/time automatically.
 
 This uses the browser Web Serial API only. The app does not create a local
 service, backend API, socket bridge, or server-side serial reader. The serial
@@ -108,14 +110,23 @@ Browser requirements:
 - HTTPS on hosted sites, such as Frappe Cloud
 - `localhost` is supported for local Docker testing
 
+The first time an operator uses a computer, the browser requires an explicit
+`Connect Scale` click so the operator can choose the serial port, for example
+COM3. After that permission exists, the app can reconnect automatically when a
+ticket form opens.
+
 The default port settings are `9600` baud, `8` data bits, `1` stop bit, no
-parity, and no flow control. The baud rate can be changed in the form and is
-remembered in the browser's local storage for that user/computer.
+parity, and no flow control. The baud rate and stable-reading rules are managed
+from `Weight Bridge Settings`.
 
 ## Ticket Logic
 
 When only the first weight is entered, the ticket remains `Pending Second Weight`
 and receives a provisional `WB-YYMMDD-##` ID.
+
+The second weight is captured only after the first weighing has been saved as a
+provisional `WB-...` ticket, which prevents the same parked truck reading from
+filling both weighing fields in one session.
 
 When the second weight is entered:
 

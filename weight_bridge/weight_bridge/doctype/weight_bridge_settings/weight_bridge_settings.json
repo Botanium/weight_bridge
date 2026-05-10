@@ -16,6 +16,13 @@
   "max_gross_weight_kg",
   "max_net_weight_kg",
   "require_second_weight_after_first",
+  "scale_connection_section",
+  "auto_connect_scale",
+  "serial_baud_rate",
+  "scale_connection_column_break",
+  "stable_status_codes",
+  "stable_reading_count",
+  "stability_tolerance_kg",
   "order_reference_section",
   "require_purchase_order_for_in",
   "require_sales_order_for_out"
@@ -76,6 +83,51 @@
    "fieldname": "require_second_weight_after_first",
    "fieldtype": "Check",
    "label": "Require Second Weight After First Weight"
+  },
+  {
+   "fieldname": "scale_connection_section",
+   "fieldtype": "Section Break",
+   "label": "Scale Capture"
+  },
+  {
+   "default": "1",
+   "description": "Reconnect automatically when the browser already has permission for a scale serial port. First-time permission still requires the operator to click Connect Scale.",
+   "fieldname": "auto_connect_scale",
+   "fieldtype": "Check",
+   "label": "Auto Connect Authorized Scale Port"
+  },
+  {
+   "default": "9600",
+   "description": "Baud rate used by the browser Web Serial connection.",
+   "fieldname": "serial_baud_rate",
+   "fieldtype": "Int",
+   "label": "Serial Baud Rate"
+  },
+  {
+   "fieldname": "scale_connection_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "A",
+   "description": "Scale status letters treated as stable readings. Separate multiple codes with commas or spaces; leave blank to accept any status code.",
+   "fieldname": "stable_status_codes",
+   "fieldtype": "Data",
+   "label": "Stable Status Codes"
+  },
+  {
+   "default": "3",
+   "description": "Number of consecutive matching readings required before the ticket captures the weight.",
+   "fieldname": "stable_reading_count",
+   "fieldtype": "Int",
+   "label": "Stable Reading Count"
+  },
+  {
+   "default": "0.001",
+   "description": "Maximum allowed Kg difference between consecutive readings that still counts as matching.",
+   "fieldname": "stability_tolerance_kg",
+   "fieldtype": "Float",
+   "label": "Stability Tolerance (Kg)",
+   "precision": "3"
   },
   {
    "fieldname": "order_reference_section",

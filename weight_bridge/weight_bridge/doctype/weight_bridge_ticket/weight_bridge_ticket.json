@@ -25,8 +25,6 @@
   "origin",
   "destination_type",
   "destination",
-  "scale_port_section",
-  "serial_port_status_html",
   "weighing_section",
   "first_weight_datetime",
   "first_weight",
@@ -168,16 +166,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "scale_port_section",
-   "fieldtype": "Section Break",
-   "label": "Scale Port"
-  },
-  {
-   "fieldname": "serial_port_status_html",
-   "fieldtype": "HTML",
-   "label": "Scale Port"
-  },
-  {
    "fieldname": "weighing_section",
    "fieldtype": "Section Break",
    "label": "Weighing"
@@ -187,15 +175,17 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "First Weight Date and Time",
+   "label": "First Scale Weight Date and Time",
+   "read_only": 1,
    "reqd": 1
   },
   {
    "fieldname": "first_weight",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "First Weight (Kg)",
+   "label": "First Scale Weight (Kg)",
    "precision": "3",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -205,13 +195,15 @@
   {
    "fieldname": "second_weight_datetime",
    "fieldtype": "Datetime",
-   "label": "Second Weight Date and Time"
+   "label": "Second Scale Weight Date and Time",
+   "read_only": 1
   },
   {
    "fieldname": "second_weight",
    "fieldtype": "Float",
-   "label": "Second Weight (Kg)",
-   "precision": "3"
+   "label": "Second Scale Weight (Kg)",
+   "precision": "3",
+   "read_only": 1
   },
   {
    "fieldname": "calculated_weights_section",

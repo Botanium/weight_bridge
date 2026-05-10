@@ -49,3 +49,23 @@ test("resolves serial open options with conservative defaults", () => {
 
 	assert.equal(serialScale.resolveOpenOptions({ baudRate: 0 }).baudRate, serialScale.DEFAULT_BAUD_RATE);
 });
+
+test("parses stable status code settings", () => {
+	assert.deepEqual(serialScale.parseStableStatusCodes(undefined), ["A"]);
+	assert.deepEqual(serialScale.parseStableStatusCodes("A, C"), ["A", "C"]);
+	assert.deepEqual(serialScale.parseStableStatusCodes(""), []);
+});
+
+test("requires consecutive stable readings before capture", () => {
+	const state = serialScale.createStableReadingState();
+	const options = {
+		stable_reading_count: 3,
+		stability_tolerance_kg: 0.5,
+		stable_status_codes: "A",
+	};
+
+	assert.equal(serialScale.updateStableReading({ weight: 90, statusCode: "C" }, state, options).stable, false);
+	assert.equal(serialScale.updateStableReading({ weight: 90, statusCode: "A" }, state, options).stable, false);
+	assert.equal(serialScale.updateStableReading({ weight: 90.2, statusCode: "A" }, state, options).stable, false);
+	assert.equal(serialScale.updateStableReading({ weight: 90.1, statusCode: "A" }, state, options).stable, true);
+});
