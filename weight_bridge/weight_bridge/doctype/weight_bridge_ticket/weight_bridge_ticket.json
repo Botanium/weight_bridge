@@ -180,6 +180,7 @@
    "reqd": 1
   },
   {
+   "default": "0",
    "fieldname": "first_weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -199,6 +200,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "second_weight",
    "fieldtype": "Float",
    "label": "Second Scale Weight (Kg)",
@@ -230,6 +232,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "gross_weight",
    "fieldtype": "Float",
    "in_list_view": 1,
@@ -238,6 +241,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "vehicle_weight",
    "fieldtype": "Float",
    "label": "Vehicle/Tare Weight (Kg)",
@@ -245,6 +249,7 @@
    "read_only": 1
   },
   {
+   "default": "0",
    "fieldname": "net_weight",
    "fieldtype": "Float",
    "in_list_view": 1,

@@ -67,6 +67,7 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		];
 
 		protected_fields.forEach((fieldname) => frm.set_df_property(fieldname, "read_only", 1));
+		initialize_visible_weighing_fields(frm);
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
 		initialize_scale_connection(frm);
@@ -156,7 +157,7 @@ function clear_sales_order_if_customer_changed(frm) {
 }
 
 function ensure_serial_scale_controller(frm) {
-	const serial_api = window.weight_bridge?.SerialScale;
+	const serial_api = normalize_serial_scale_api(window.weight_bridge?.SerialScale);
 	if (!serial_api?.createController) {
 		return null;
 	}
@@ -177,6 +178,42 @@ function ensure_serial_scale_controller(frm) {
 	}
 
 	return frm.weight_bridge_serial_controller;
+}
+
+function normalize_serial_scale_api(serial_api) {
+	if (!serial_api?.createController) {
+		return null;
+	}
+
+	if (!serial_api.createStableReadingState) {
+		serial_api.createStableReadingState = create_stable_reading_state;
+	}
+	if (!serial_api.updateStableReading) {
+		serial_api.updateStableReading = update_stable_reading;
+	}
+
+	return serial_api;
+}
+
+function initialize_visible_weighing_fields(frm) {
+	if (is_empty_value(frm.doc.first_weight)) {
+		frm.set_value("first_weight", 0);
+	}
+	if (is_empty_value(frm.doc.second_weight)) {
+		frm.set_value("second_weight", 0);
+	}
+	if (is_empty_value(frm.doc.gross_weight)) {
+		frm.set_value("gross_weight", 0);
+	}
+	if (is_empty_value(frm.doc.vehicle_weight)) {
+		frm.set_value("vehicle_weight", 0);
+	}
+	if (is_empty_value(frm.doc.net_weight)) {
+		frm.set_value("net_weight", 0);
+	}
+	if (frm.doc.__islocal && !frm.doc.first_weight_datetime) {
+		frm.set_value("first_weight_datetime", get_now_datetime_value());
+	}
 }
 
 function initialize_scale_connection(frm) {
@@ -335,7 +372,7 @@ async function close_scale_connection(frm, options = {}) {
 }
 
 function handle_scale_reading(frm, reading) {
-	const serial_api = window.weight_bridge?.SerialScale;
+	const serial_api = normalize_serial_scale_api(window.weight_bridge?.SerialScale);
 	if (!serial_api) {
 		return;
 	}
@@ -373,7 +410,7 @@ async function capture_stable_scale_weight(frm, reading) {
 	try {
 		const datetime_fieldname = fieldname === "first_weight" ? "first_weight_datetime" : "second_weight_datetime";
 		await frm.set_value(fieldname, weight);
-		await frm.set_value(datetime_fieldname, frappe.datetime.now_datetime());
+		await frm.set_value(datetime_fieldname, get_now_datetime_value());
 		if (fieldname === "first_weight") {
 			frm.weight_bridge_first_weight_captured_this_session = true;
 		}
@@ -448,8 +485,12 @@ function update_scale_status(frm) {
 	const weight_text = latest_reading ? ` ${format_serial_weight(latest_reading)}` : "";
 	const stable_text = stable_result?.stable ? ` ${__("stable")}` : "";
 	const status_code = latest_reading?.statusCode ? ` ${__("status")} ${escape_html(latest_reading.statusCode)}` : "";
+	const detail_text =
+		controller?.status === "error" && controller.lastStatusDetail
+			? ` ${escape_html(controller.lastStatusDetail)}`
+			: "";
 
-	show_scale_status(frm, `${label}${weight_text}${stable_text}${status_code}`, color);
+	show_scale_status(frm, `${label}${weight_text}${stable_text}${status_code}${detail_text}`, color);
 	render_scale_toolbar(frm);
 }
 
@@ -467,10 +508,26 @@ function get_scale_status_color(controller, stable_result) {
 }
 
 function show_scale_status(frm, label, color) {
-	frm.dashboard.set_headline(
-		`<span class="indicator ${color}">${escape_html(label)}</span>`,
-		color === "green" ? "green" : ""
-	);
+	const message_container = frm.layout?.message;
+	if (!message_container?.length) {
+		return;
+	}
+
+	message_container
+		.find("[data-weight-bridge-scale-message], .form-message")
+		.filter(function () {
+			const text = $(this).text().trim();
+			return $(this).is("[data-weight-bridge-scale-message]") || /\bscale\b/i.test(text);
+		})
+		.remove();
+
+	const block_color = ["yellow", "blue", "red", "green", "orange"].includes(color) ? color : "blue";
+	$(
+		`<div class="form-message ${block_color} weight-bridge-scale-message" data-weight-bridge-scale-message>
+			<span class="indicator ${color}">${escape_html(label)}</span>
+		</div>`
+	).prependTo(message_container);
+	message_container.removeClass("hidden");
 }
 
 function get_scale_baud_rate(frm) {
@@ -482,6 +539,85 @@ function get_scale_baud_rate(frm) {
 
 function get_scale_settings(frm) {
 	return frm.weight_bridge_scale_settings || WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS;
+}
+
+function create_stable_reading_state() {
+	return {
+		lastWeight: null,
+		stableCount: 0,
+		latestStableReading: null,
+	};
+}
+
+function update_stable_reading(reading, state, options) {
+	const stable_state = state || create_stable_reading_state();
+	const settings = {
+		...WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS,
+		...(options || {}),
+	};
+	const weight = Number(reading?.weight);
+	const stable_codes = parse_stable_status_codes(settings.stable_status_codes);
+
+	if (!Number.isFinite(weight) || !is_stable_status_code(reading?.statusCode, stable_codes)) {
+		stable_state.stableCount = 0;
+		stable_state.latestStableReading = null;
+		return {
+			stable: false,
+			stableCount: stable_state.stableCount,
+			requiredStableCount: get_stable_reading_count(settings),
+			reading,
+		};
+	}
+
+	if (
+		stable_state.lastWeight !== null &&
+		Math.abs(weight - stable_state.lastWeight) <= get_stability_tolerance(settings)
+	) {
+		stable_state.stableCount += 1;
+	} else {
+		stable_state.lastWeight = weight;
+		stable_state.stableCount = 1;
+	}
+
+	const required_count = get_stable_reading_count(settings);
+	const stable = stable_state.stableCount >= required_count;
+	stable_state.latestStableReading = stable ? reading : null;
+
+	return {
+		stable,
+		stableCount: stable_state.stableCount,
+		requiredStableCount: required_count,
+		reading,
+	};
+}
+
+function parse_stable_status_codes(value) {
+	if (value === undefined || value === null) {
+		return ["A"];
+	}
+
+	return String(value)
+		.split(/[,\s]+/)
+		.map((code) => code.trim().toUpperCase())
+		.filter(Boolean);
+}
+
+function is_stable_status_code(status_code, stable_codes) {
+	if (!stable_codes.length) {
+		return true;
+	}
+
+	return stable_codes.includes(String(status_code || "").trim().toUpperCase());
+}
+
+function get_stable_reading_count(settings) {
+	const count = Number(settings.stable_reading_count);
+	return Number.isFinite(count) && count > 0 ? Math.ceil(count) : 3;
+}
+
+function get_stability_tolerance(settings) {
+	const tolerance = Number(settings.stability_tolerance_kg);
+	return Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : 0.001;
 }
 
 function load_scale_settings(frm) {
@@ -522,6 +658,18 @@ function format_number(value) {
 
 function get_field_label(frm, fieldname) {
 	return frm.fields_dict[fieldname]?.df?.label || fieldname;
+}
+
+function get_now_datetime_value() {
+	if (frappe.datetime?.now_datetime) {
+		return frappe.datetime.now_datetime();
+	}
+
+	return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
+function is_empty_value(value) {
+	return value === undefined || value === null || value === "";
 }
 
 function escape_html(value) {

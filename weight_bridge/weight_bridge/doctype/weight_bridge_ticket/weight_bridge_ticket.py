@@ -269,7 +269,7 @@ class WeightBridgeTicket(Document):
 		return self._has_second_weight() and flt(self.first_weight) > 0 and flt(self.second_weight) > 0
 
 	def _has_second_weight(self):
-		return self.second_weight not in (None, "")
+		return flt(self.second_weight) > 0
 
 	def _make_final_name(self):
 		if self.direction not in FINAL_DIRECTIONS:

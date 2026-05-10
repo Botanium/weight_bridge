@@ -293,18 +293,32 @@
 			this.setStatus("connecting");
 			this.port = port;
 			this.parserState = createParserState();
-			await this.port.open(resolveOpenOptions(options));
-
-			this.decoder = new this.TextDecoderStream();
-			this.readableStreamClosed = this.port.readable.pipeTo(this.decoder.writable).catch((error) => {
-				if (this.keepReading) {
-					this.onError(error);
+			try {
+				await this.port.open(resolveOpenOptions(options));
+				if (!this.port.readable) {
+					throw new Error("The selected serial port did not expose a readable stream.");
 				}
-			});
-			this.reader = this.decoder.readable.getReader();
-			this.keepReading = true;
-			this.setStatus("connected");
-			this.readLoopPromise = this.readLoop();
+
+				this.decoder = new this.TextDecoderStream();
+				this.readableStreamClosed = this.port.readable.pipeTo(this.decoder.writable).catch((error) => {
+					if (this.keepReading) {
+						this.setStatus("error", error.message || String(error));
+						this.onError(error);
+					}
+				});
+				this.reader = this.decoder.readable.getReader();
+				this.keepReading = true;
+				this.setStatus("connected");
+				this.readLoopPromise = this.readLoop();
+			} catch (error) {
+				this.keepReading = false;
+				this.port = null;
+				this.decoder = null;
+				this.readableStreamClosed = null;
+				this.reader = null;
+				this.setStatus("error", error.message || String(error));
+				throw error;
+			}
 
 			return this;
 		}

@@ -142,6 +142,11 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		self.assertEqual(meta.get_field("second_weight_datetime").label, "Second Scale Weight Date and Time")
 		self.assertEqual(meta.get_field("first_weight").label, "First Scale Weight (Kg)")
 		self.assertEqual(meta.get_field("second_weight").label, "Second Scale Weight (Kg)")
+		self.assertEqual(meta.get_field("first_weight").default, "0")
+		self.assertEqual(meta.get_field("second_weight").default, "0")
+		self.assertEqual(meta.get_field("gross_weight").default, "0")
+		self.assertEqual(meta.get_field("vehicle_weight").default, "0")
+		self.assertEqual(meta.get_field("net_weight").default, "0")
 		for fieldname in ("first_weight_datetime", "second_weight_datetime", "first_weight", "second_weight"):
 			self.assertEqual(meta.get_field(fieldname).read_only, 1)
 
@@ -221,6 +226,15 @@ class TestWeightBridgeTicket(FrappeTestCase):
 
 		with self.assertRaises(frappe.ValidationError):
 			ticket.insert(ignore_permissions=True)
+
+	def test_zero_second_weight_is_treated_as_pending_second_weight(self):
+		ticket = self._new_ticket(first_weight=50000)
+		ticket.second_weight = 0
+		ticket.insert(ignore_permissions=True)
+
+		self.assertTrue(ticket.name.startswith("WB-990101-"))
+		self.assertEqual(ticket.ticket_status, "Pending Second Weight")
+		self.assertIsNone(ticket.direction)
 
 	def test_reports_return_weight_bridge_ticket_data(self):
 		from weight_bridge.weight_bridge.report.daily_weight_bridge_summary.daily_weight_bridge_summary import (

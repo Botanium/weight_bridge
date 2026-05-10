@@ -109,6 +109,30 @@ test("reports not authorized when no saved serial port permission exists", async
 	assert.equal(statuses.at(-1), "not_authorized");
 });
 
+test("reports a connection error when the selected serial port cannot open", async () => {
+	const statuses = [];
+	const fakePort = {
+		async open() {
+			throw new Error("Failed to open serial port");
+		},
+	};
+	const controller = new SerialScaleController({
+		serial: {
+			async requestPort() {
+				return fakePort;
+			},
+		},
+		TextDecoderStream,
+		onStatusChange: (status) => statuses.push(status),
+	});
+
+	await assert.rejects(() => controller.open(), /Failed to open serial port/);
+
+	assert.equal(statuses.at(-1).status, "error");
+	assert.match(statuses.at(-1).detail, /Failed to open serial port/);
+	assert.equal(controller.port, null);
+});
+
 test("closes an open Web Serial port cleanly", async () => {
 	const fakePort = createFakePort([], { keepOpen: true });
 	const statuses = [];
