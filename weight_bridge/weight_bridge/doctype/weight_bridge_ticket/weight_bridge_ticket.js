@@ -4,6 +4,7 @@ const WEIGHT_BRIDGE_DEFAULT_SCALE_SETTINGS = {
 	stable_reading_count: 3,
 	stable_status_codes: "A",
 	stability_tolerance_kg: 0.001,
+	min_net_weight_kg: 1,
 };
 
 frappe.ui.form.on("Weight Bridge Ticket", {
@@ -46,6 +47,9 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 	},
 
 	after_save(frm) {
+		reset_scale_capture_state(frm);
+		frm.weight_bridge_first_weight_captured_this_session = false;
+
 		const old_name = frm.weight_bridge_name_before_save;
 		const new_name = get_saved_ticket_name(frm);
 
@@ -68,6 +72,7 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 
 		protected_fields.forEach((fieldname) => frm.set_df_property(fieldname, "read_only", 1));
 		initialize_visible_weighing_fields(frm);
+		clear_saved_scale_capture_guard(frm);
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
 		initialize_scale_connection(frm);
@@ -193,6 +198,26 @@ function normalize_serial_scale_api(serial_api) {
 	}
 
 	return serial_api;
+}
+
+function reset_scale_capture_state(frm) {
+	const serial_api = normalize_serial_scale_api(window.weight_bridge?.SerialScale);
+	frm.weight_bridge_stable_state = serial_api?.createStableReadingState
+		? serial_api.createStableReadingState()
+		: create_stable_reading_state();
+	frm.weight_bridge_latest_stable_result = null;
+}
+
+function clear_saved_scale_capture_guard(frm) {
+	if (
+		!frm.doc.__islocal &&
+		frm.doc.name &&
+		frm.doc.name.startsWith("WB-") &&
+		flt(frm.doc.first_weight) > 0 &&
+		flt(frm.doc.second_weight) <= 0
+	) {
+		frm.weight_bridge_first_weight_captured_this_session = false;
+	}
 }
 
 function initialize_visible_weighing_fields(frm) {
@@ -405,6 +430,9 @@ async function capture_stable_scale_weight(frm, reading) {
 	if (!Number.isFinite(weight) || weight <= 0) {
 		return;
 	}
+	if (fieldname === "second_weight" && is_duplicate_second_weight_reading(frm, weight)) {
+		return;
+	}
 
 	frm.weight_bridge_capturing_scale = true;
 	try {
@@ -413,6 +441,8 @@ async function capture_stable_scale_weight(frm, reading) {
 		await frm.set_value(datetime_fieldname, get_now_datetime_value());
 		if (fieldname === "first_weight") {
 			frm.weight_bridge_first_weight_captured_this_session = true;
+		} else {
+			frm.weight_bridge_first_weight_captured_this_session = false;
 		}
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
@@ -447,6 +477,22 @@ function get_next_weight_fieldname(frm) {
 	}
 
 	return null;
+}
+
+function is_duplicate_second_weight_reading(frm, weight) {
+	const first_weight = flt(frm.doc.first_weight);
+	if (first_weight <= 0) {
+		return false;
+	}
+
+	const settings = get_scale_settings(frm);
+	const min_net_weight = Number(settings.min_net_weight_kg);
+	const required_difference = Math.max(
+		get_stability_tolerance(settings),
+		Number.isFinite(min_net_weight) && min_net_weight > 0 ? min_net_weight : 0
+	);
+
+	return Math.abs(Number(weight) - first_weight) <= required_difference;
 }
 
 function set_dynamic_weight_labels(frm) {
