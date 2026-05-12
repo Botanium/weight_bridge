@@ -150,16 +150,22 @@ function createFrm(doc = {}) {
 		fields_dict: {
 			first_weight: { df: { label: "First Scale Weight (Kg)" } },
 			second_weight: { df: { label: "Second Scale Weight (Kg)" } },
+			set_first_weight_button: { $wrapper: createChain(), df: { label: "Set" } },
+			set_second_weight_button: { $wrapper: createChain(), df: { label: "Set" } },
 		},
 		layout: {
 			message: createChain(),
 		},
-		set_df_property() {},
+		set_df_property(fieldname, property, value) {
+			this.fields_dict[fieldname] = this.fields_dict[fieldname] || { df: {} };
+			this.fields_dict[fieldname].df[property] = value;
+		},
 		set_value(fieldname, value) {
 			this.doc[fieldname] = value;
 			return Promise.resolve();
 		},
 		toggle_display() {},
+		toggle_enable() {},
 	};
 }
 
@@ -271,4 +277,48 @@ test("ticket form captures second scale weight after first weight is saved", asy
 	assert.equal(frm.doc.second_weight, 46190);
 	assert.equal(frm.doc.second_weight_datetime, "2099-01-01 10:00:00");
 	assert.equal(frm.weight_bridge_first_weight_captured_this_session, false);
+});
+
+test("ticket form Set buttons update the active weighing stage from the latest stable reading", async () => {
+	const serialApi = createFakeSerialApi();
+	const context = loadTicketScript(serialApi);
+	const frm = createFrm({
+		first_weight_datetime: undefined,
+		first_weight: 0,
+		second_weight: 0,
+	});
+
+	context.handlers.refresh(frm);
+
+	serialApi.controllerOptions.onReading({ weight: 10000, statusCode: "A" });
+	await flushPromises();
+	assert.equal(frm.doc.first_weight, 10000);
+
+	serialApi.controllerOptions.onReading({ weight: 9500, statusCode: "A" });
+	await flushPromises();
+	await context.capture_latest_scale_weight(frm, "first_weight");
+	await flushPromises();
+
+	assert.equal(frm.doc.first_weight, 9500);
+	assert.equal(frm.doc.first_weight_datetime, "2099-01-01 10:00:00");
+
+	context.handlers.before_save(frm);
+	frm.doc.__islocal = 0;
+	frm.doc.name = "WB-260511-01";
+	context.handlers.after_save(frm);
+
+	serialApi.controllerOptions.onReading({ weight: 42000, statusCode: "A" });
+	await flushPromises();
+	await context.capture_latest_scale_weight(frm, "second_weight");
+	await flushPromises();
+
+	assert.equal(frm.doc.second_weight, 42000);
+	assert.equal(frm.doc.second_weight_datetime, "2099-01-01 10:00:00");
+
+	serialApi.controllerOptions.onReading({ weight: 42125, statusCode: "A" });
+	await flushPromises();
+	await context.capture_latest_scale_weight(frm, "second_weight");
+	await flushPromises();
+
+	assert.equal(frm.doc.second_weight, 42125);
 });

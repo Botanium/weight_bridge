@@ -15,8 +15,6 @@ def get_columns():
 		{"label": _("Cargo Item"), "fieldname": "cargo_item", "fieldtype": "Link", "options": "Item", "width": 160},
 		{"label": _("Origin Type"), "fieldname": "origin_type", "fieldtype": "Data", "width": 110},
 		{"label": _("Origin"), "fieldname": "origin", "fieldtype": "Data", "width": 180},
-		{"label": _("Destination Type"), "fieldname": "destination_type", "fieldtype": "Data", "width": 130},
-		{"label": _("Destination"), "fieldname": "destination", "fieldtype": "Data", "width": 180},
 		{"label": _("Truck Count"), "fieldname": "truck_count", "fieldtype": "Int", "width": 110},
 		{"label": _("Net Weight (Kg)"), "fieldname": "total_net_weight", "fieldtype": "Float", "width": 150},
 		{"label": _("First Ticket Date"), "fieldname": "first_ticket_date", "fieldtype": "Date", "width": 130},
@@ -38,8 +36,6 @@ def get_data(filters):
 			wbt.cargo_item,
 			wbt.origin_type,
 			wbt.origin,
-			wbt.destination_type,
-			wbt.destination,
 			count(wbt.name) as truck_count,
 			sum(wbt.net_weight) as total_net_weight,
 			min(date(wbt.first_weight_datetime)) as first_ticket_date,
@@ -52,9 +48,7 @@ def get_data(filters):
 			order_reference,
 			wbt.cargo_item,
 			wbt.origin_type,
-			wbt.origin,
-			wbt.destination_type,
-			wbt.destination
+			wbt.origin
 		order by last_ticket_date desc, wbt.direction asc, order_reference asc
 		""",
 		values,

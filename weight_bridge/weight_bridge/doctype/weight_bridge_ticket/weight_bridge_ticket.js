@@ -29,16 +29,12 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		});
 
 		frm.set_query("sales_order", () => {
-			const filters = {
-				docstatus: 1,
-				status: ["not in", ["Cancelled", "Closed"]],
+			return {
+				filters: {
+					docstatus: 1,
+					status: ["not in", ["Cancelled", "Closed"]],
+				},
 			};
-
-			if (frm.doc.destination_type === "Customer" && frm.doc.destination) {
-				filters.customer = frm.doc.destination;
-			}
-
-			return { filters };
 		});
 	},
 
@@ -75,21 +71,26 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		clear_saved_scale_capture_guard(frm);
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
+		render_weight_capture_buttons(frm);
 		initialize_scale_connection(frm);
 	},
 
 	first_weight(frm) {
 		set_order_reference_visibility(frm);
 		set_dynamic_weight_labels(frm);
+		render_weight_capture_buttons(frm);
 	},
 
 	second_weight(frm) {
 		set_order_reference_visibility(frm);
 		set_dynamic_weight_labels(frm);
+		render_weight_capture_buttons(frm);
 	},
 
 	direction(frm) {
 		set_order_reference_visibility(frm);
+		set_dynamic_weight_labels(frm);
+		render_weight_capture_buttons(frm);
 	},
 
 	origin_type(frm) {
@@ -100,12 +101,12 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		clear_purchase_order_if_supplier_changed(frm);
 	},
 
-	destination_type(frm) {
-		clear_sales_order_if_customer_changed(frm);
+	set_first_weight_button(frm) {
+		capture_latest_scale_weight(frm, "first_weight");
 	},
 
-	destination(frm) {
-		clear_sales_order_if_customer_changed(frm);
+	set_second_weight_button(frm) {
+		capture_latest_scale_weight(frm, "second_weight");
 	},
 });
 
@@ -152,12 +153,6 @@ function get_ticket_direction(frm) {
 function clear_purchase_order_if_supplier_changed(frm) {
 	if (frm.doc.purchase_order) {
 		frm.set_value("purchase_order", null);
-	}
-}
-
-function clear_sales_order_if_customer_changed(frm) {
-	if (frm.doc.sales_order) {
-		frm.set_value("sales_order", null);
 	}
 }
 
@@ -414,6 +409,7 @@ function handle_scale_reading(frm, reading) {
 	}
 
 	update_scale_status(frm);
+	render_weight_capture_buttons(frm);
 }
 
 async function capture_stable_scale_weight(frm, reading) {
@@ -423,6 +419,31 @@ async function capture_stable_scale_weight(frm, reading) {
 
 	const fieldname = get_next_weight_fieldname(frm);
 	if (!fieldname) {
+		return;
+	}
+
+	await capture_scale_weight(frm, fieldname, reading, { source: "stable" });
+}
+
+async function capture_latest_scale_weight(frm, fieldname) {
+	if (!is_manual_weight_capture_allowed(frm, fieldname)) {
+		return;
+	}
+
+	const stable_reading = get_latest_stable_reading(frm);
+	if (!stable_reading) {
+		frappe.show_alert({
+			message: __("Wait for a stable scale reading before setting the weight."),
+			indicator: "orange",
+		});
+		return;
+	}
+
+	await capture_scale_weight(frm, fieldname, stable_reading, { source: "manual" });
+}
+
+async function capture_scale_weight(frm, fieldname, reading, options = {}) {
+	if (frm.weight_bridge_capturing_scale || is_weight_capture_locked(frm)) {
 		return;
 	}
 
@@ -446,9 +467,11 @@ async function capture_stable_scale_weight(frm, reading) {
 		}
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
+		render_weight_capture_buttons(frm);
 		frappe.show_alert({
-			message: __("{0} captured from stable scale reading: {1} Kg. Save the ticket.", [
+			message: __("{0} {1} from stable scale reading: {2} Kg. Save the ticket.", [
 				get_field_label(frm, fieldname),
+				options.source === "manual" ? __("set") : __("captured"),
 				format_number(weight),
 			]),
 			indicator: "green",
@@ -456,6 +479,15 @@ async function capture_stable_scale_weight(frm, reading) {
 	} finally {
 		frm.weight_bridge_capturing_scale = false;
 	}
+}
+
+function get_latest_stable_reading(frm) {
+	const stable_result = frm.weight_bridge_latest_stable_result;
+	if (stable_result?.stable && stable_result.reading) {
+		return stable_result.reading;
+	}
+
+	return null;
 }
 
 function is_weight_capture_locked(frm) {
@@ -477,6 +509,25 @@ function get_next_weight_fieldname(frm) {
 	}
 
 	return null;
+}
+
+function is_manual_weight_capture_allowed(frm, fieldname) {
+	if (is_weight_capture_locked(frm)) {
+		return false;
+	}
+	if (fieldname === "first_weight") {
+		return Boolean(frm.doc.__islocal);
+	}
+	if (fieldname === "second_weight") {
+		return Boolean(
+			!frm.doc.__islocal &&
+				frm.doc.name &&
+				frm.doc.name.startsWith("WB-") &&
+				flt(frm.doc.first_weight) > 0
+		);
+	}
+
+	return false;
 }
 
 function is_duplicate_second_weight_reading(frm, weight) {
@@ -510,6 +561,37 @@ function set_dynamic_weight_labels(frm) {
 
 	frm.set_df_property("first_weight", "label", first_label);
 	frm.set_df_property("second_weight", "label", second_label);
+	update_weight_capture_button_labels(frm, first_label, second_label);
+}
+
+function update_weight_capture_button_labels(frm, first_label, second_label) {
+	const first_action = flt(frm.doc.first_weight) > 0 ? __("Update") : __("Set");
+	const second_action = flt(frm.doc.second_weight) > 0 ? __("Update") : __("Set");
+	frm.set_df_property("set_first_weight_button", "label", __("{0} {1}", [first_action, first_label]));
+	frm.set_df_property("set_second_weight_button", "label", __("{0} {1}", [second_action, second_label]));
+}
+
+function render_weight_capture_buttons(frm) {
+	const has_stable_reading = Boolean(get_latest_stable_reading(frm));
+	update_weight_capture_button("set_first_weight_button", frm, has_stable_reading);
+	update_weight_capture_button("set_second_weight_button", frm, has_stable_reading);
+}
+
+function update_weight_capture_button(button_fieldname, frm, has_stable_reading) {
+	const target_fieldname = button_fieldname === "set_first_weight_button" ? "first_weight" : "second_weight";
+	const enabled = has_stable_reading && is_manual_weight_capture_allowed(frm, target_fieldname);
+
+	if (frm.toggle_display) {
+		frm.toggle_display(button_fieldname, true);
+	}
+	if (frm.toggle_enable) {
+		frm.toggle_enable(button_fieldname, enabled);
+	}
+
+	const button = frm.fields_dict[button_fieldname]?.$wrapper?.find("button");
+	if (button?.prop) {
+		button.prop("disabled", !enabled);
+	}
 }
 
 function update_scale_status(frm) {
@@ -538,6 +620,7 @@ function update_scale_status(frm) {
 
 	show_scale_status(frm, `${label}${weight_text}${stable_text}${status_code}${detail_text}`, color);
 	render_scale_toolbar(frm);
+	render_weight_capture_buttons(frm);
 }
 
 function get_scale_status_color(controller, stable_result) {

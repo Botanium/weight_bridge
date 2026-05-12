@@ -9,7 +9,7 @@ from weight_bridge.install import WEIGHT_BRIDGE_SETTINGS_DEFAULTS
 
 FINAL_DIRECTIONS = {"IN", "OUT"}
 PARTY_LINK_TYPES = {"Supplier", "Customer", "Warehouse"}
-DRIVER_FETCH_FIELDS = ("driver_name", "passport_number", "national_code")
+DRIVER_FETCH_FIELDS = ("driver_name",)
 ORDER_CLOSED_STATUSES = {"Cancelled", "Closed"}
 PROTECTED_FINAL_FIELDS = (
 	"first_weight_datetime",
@@ -118,7 +118,7 @@ class WeightBridgeTicket(Document):
 			frappe.throw(_("Driver Phone Number {0} does not exist.").format(frappe.bold(self.driver)))
 
 	def _validate_dynamic_link_types(self):
-		for fieldname in ("origin_type", "destination_type"):
+		for fieldname in ("origin_type",):
 			if self.get(fieldname) not in PARTY_LINK_TYPES:
 				frappe.throw(_("{0} must be Supplier, Customer, or Warehouse.").format(self.meta.get_label(fieldname)))
 
@@ -185,20 +185,10 @@ class WeightBridgeTicket(Document):
 			frappe.throw(_("Sales Order {0} must be submitted.").format(frappe.bold(self.sales_order)))
 		if sales_order.status in ORDER_CLOSED_STATUSES:
 			frappe.throw(_("Sales Order {0} is {1}.").format(frappe.bold(self.sales_order), sales_order.status))
-		if self.destination_type == "Customer" and sales_order.customer != self.destination:
-			frappe.throw(
-				_("Sales Order {0} is for Customer {1}, not Destination {2}.").format(
-					frappe.bold(self.sales_order),
-					frappe.bold(sales_order.customer),
-					frappe.bold(self.destination),
-				)
-			)
 
 	def _set_driver_details(self):
 		if not self.driver:
 			self.driver_name = None
-			self.driver_passport_number = None
-			self.driver_national_code = None
 			return
 
 		driver = frappe.db.get_value("Weight Bridge Driver", self.driver, DRIVER_FETCH_FIELDS, as_dict=True)
@@ -206,8 +196,6 @@ class WeightBridgeTicket(Document):
 			return
 
 		self.driver_name = driver.driver_name
-		self.driver_passport_number = driver.passport_number
-		self.driver_national_code = driver.national_code
 
 	def _set_calculated_fields(self):
 		if not self._has_complete_weights():

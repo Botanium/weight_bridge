@@ -12,9 +12,6 @@
   "driver",
   "truck_details_column_2",
   "driver_name",
-  "driver_passport_number",
-  "truck_details_column_3",
-  "driver_national_code",
   "operator",
   "cargo_section",
   "cargo_item",
@@ -23,14 +20,14 @@
   "cargo_column_2",
   "origin_type",
   "origin",
-  "destination_type",
-  "destination",
   "weighing_section",
   "first_weight_datetime",
   "first_weight",
+  "set_first_weight_button",
   "column_break_first",
   "second_weight_datetime",
   "second_weight",
+  "set_second_weight_button",
   "calculated_weights_section",
   "direction",
   "ticket_status",
@@ -75,24 +72,6 @@
    "label": "Driver Name",
    "read_only": 1,
    "reqd": 1
-  },
-  {
-   "fetch_from": "driver.passport_number",
-   "fieldname": "driver_passport_number",
-   "fieldtype": "Data",
-   "label": "Passport Number",
-   "read_only": 1
-  },
-  {
-   "fieldname": "truck_details_column_3",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "driver.national_code",
-   "fieldname": "driver_national_code",
-   "fieldtype": "Data",
-   "label": "National Code",
-   "read_only": 1
   },
   {
    "default": "user",
@@ -151,21 +130,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "destination_type",
-   "fieldtype": "Select",
-   "label": "Destination Type",
-   "options": "Supplier\nCustomer\nWarehouse",
-   "reqd": 1
-  },
-  {
-   "fieldname": "destination",
-   "fieldtype": "Dynamic Link",
-   "in_standard_filter": 1,
-   "label": "Destination",
-   "options": "destination_type",
-   "reqd": 1
-  },
-  {
    "fieldname": "weighing_section",
    "fieldtype": "Section Break",
    "label": "Weighing"
@@ -190,6 +154,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "set_first_weight_button",
+   "fieldtype": "Button",
+   "label": "Set"
+  },
+  {
    "fieldname": "column_break_first",
    "fieldtype": "Column Break"
   },
@@ -206,6 +175,11 @@
    "label": "Second Scale Weight (Kg)",
    "precision": "3",
    "read_only": 1
+  },
+  {
+   "fieldname": "set_second_weight_button",
+   "fieldtype": "Button",
+   "label": "Set"
   },
   {
    "fieldname": "calculated_weights_section",

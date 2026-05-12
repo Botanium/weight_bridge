@@ -75,14 +75,16 @@ class TestWeightBridgeTicket(FrappeTestCase):
 
 		self.assertEqual(ticket.driver, "+9647700000001")
 		self.assertEqual(ticket.driver_name, "Test Driver")
-		self.assertEqual(ticket.driver_passport_number, "P1234567")
-		self.assertEqual(ticket.driver_national_code, "N1234567")
 
 	def test_ticket_does_not_duplicate_driver_phone_number_field(self):
 		fieldnames = {field.fieldname for field in frappe.get_meta("Weight Bridge Ticket").fields}
 
 		self.assertIn("driver", fieldnames)
 		self.assertNotIn("driver_phone_number", fieldnames)
+		self.assertNotIn("driver_passport_number", fieldnames)
+		self.assertNotIn("driver_national_code", fieldnames)
+		self.assertNotIn("destination_type", fieldnames)
+		self.assertNotIn("destination", fieldnames)
 
 	def test_driver_quick_entry_includes_all_driver_fields(self):
 		meta = frappe.get_meta("Weight Bridge Driver")
@@ -96,11 +98,10 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		self.assertEqual(meta.get_field("purchase_order").options, "Purchase Order")
 		self.assertEqual(meta.get_field("sales_order").options, "Sales Order")
 
-	def test_truck_details_layout_uses_three_columns(self):
+	def test_truck_details_layout_uses_two_columns(self):
 		meta = frappe.get_meta("Weight Bridge Ticket")
 
 		self.assertEqual(meta.get_field("truck_details_column_2").fieldtype, "Column Break")
-		self.assertEqual(meta.get_field("truck_details_column_3").fieldtype, "Column Break")
 		self.assertEqual(
 			self._field_order_between(meta, "truck_details_section", "cargo_section"),
 			[
@@ -108,9 +109,6 @@ class TestWeightBridgeTicket(FrappeTestCase):
 				"driver",
 				"truck_details_column_2",
 				"driver_name",
-				"driver_passport_number",
-				"truck_details_column_3",
-				"driver_national_code",
 				"operator",
 			],
 		)
@@ -128,8 +126,6 @@ class TestWeightBridgeTicket(FrappeTestCase):
 				"cargo_column_2",
 				"origin_type",
 				"origin",
-				"destination_type",
-				"destination",
 			],
 		)
 
@@ -142,6 +138,8 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		self.assertEqual(meta.get_field("second_weight_datetime").label, "Second Scale Weight Date and Time")
 		self.assertEqual(meta.get_field("first_weight").label, "First Scale Weight (Kg)")
 		self.assertEqual(meta.get_field("second_weight").label, "Second Scale Weight (Kg)")
+		self.assertEqual(meta.get_field("set_first_weight_button").fieldtype, "Button")
+		self.assertEqual(meta.get_field("set_second_weight_button").fieldtype, "Button")
 		self.assertEqual(meta.get_field("first_weight").default, "0")
 		self.assertEqual(meta.get_field("second_weight").default, "0")
 		self.assertEqual(meta.get_field("gross_weight").default, "0")
@@ -333,8 +331,6 @@ class TestWeightBridgeTicket(FrappeTestCase):
 				"cargo_item": "VR",
 				"origin_type": "Warehouse",
 				"origin": "Stores - PZT",
-				"destination_type": "Warehouse",
-				"destination": "Finished Goods - PZT",
 				"first_weight_datetime": f"{date} 10:00:00",
 				"first_weight": first_weight,
 			}
