@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -181,6 +183,24 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		):
 			self.assertIn(expected_link, links)
 
+	def test_weight_bridge_ticket_connections_show_related_references(self):
+		dashboard_data = frappe.get_meta("Weight Bridge Ticket").get_dashboard_data()
+		transactions = {section["label"]: section["items"] for section in dashboard_data.transactions}
+
+		self.assertEqual(dashboard_data.fieldname, "weight_bridge_ticket")
+		self.assertEqual(dashboard_data.internal_links["Purchase Order"], "purchase_order")
+		self.assertEqual(dashboard_data.internal_links["Sales Order"], "sales_order")
+		self.assertEqual(dashboard_data.internal_links["Weight Bridge Truck"], "plate_number")
+		self.assertEqual(dashboard_data.internal_links["Weight Bridge Driver"], "driver")
+		self.assertEqual(dashboard_data.internal_links["Item"], "cargo_item")
+		self.assertIn("Purchase Order", transactions["Orders"])
+		self.assertIn("Sales Order", transactions["Orders"])
+		self.assertIn("Weight Bridge Truck", transactions["References"])
+		self.assertIn("Weight Bridge Driver", transactions["References"])
+		self.assertIn("Item", transactions["References"])
+		if frappe.db.exists("DocType", "Laboratory Truck Test"):
+			self.assertIn("Laboratory Truck Test", transactions["Laboratory"])
+
 	def test_weight_bridge_settings_defaults_are_available(self):
 		meta = frappe.get_meta("Weight Bridge Settings")
 		settings = frappe.get_single("Weight Bridge Settings")
@@ -233,6 +253,20 @@ class TestWeightBridgeTicket(FrappeTestCase):
 		self.assertTrue(ticket.name.startswith("WB-990101-"))
 		self.assertEqual(ticket.ticket_status, "Pending Second Weight")
 		self.assertIsNone(ticket.direction)
+
+	def test_pending_wb_ticket_cannot_be_submitted(self):
+		ticket = self._new_ticket(first_weight=50000)
+		ticket.insert(ignore_permissions=True)
+
+		self.assertTrue(ticket.name.startswith("WB-990101-"))
+		self.assertEqual(ticket.ticket_status, "Pending Second Weight")
+
+		with self.assertRaises(frappe.ValidationError):
+			ticket.submit()
+
+		ticket.reload()
+		self.assertEqual(ticket.docstatus, 0)
+		self.assertTrue(ticket.name.startswith("WB-990101-"))
 
 	def test_reports_return_weight_bridge_ticket_data(self):
 		from weight_bridge.weight_bridge.report.daily_weight_bridge_summary.daily_weight_bridge_summary import (
@@ -320,6 +354,37 @@ class TestWeightBridgeTicket(FrappeTestCase):
 
 		self.assertEqual(ticket.direction, "OUT")
 		self.assertIsNone(ticket.purchase_order)
+
+	def test_purchase_order_must_match_supplier_origin(self):
+		ticket = self._new_ticket()
+		ticket.origin_type = "Supplier"
+		ticket.origin = "Expected Supplier"
+		ticket.purchase_order = "PUR-ORD-TEST"
+
+		with patch.object(
+			frappe.db,
+			"get_value",
+			return_value=frappe._dict(docstatus=1, status="To Receive and Bill", supplier="Other Supplier"),
+		):
+			with self.assertRaises(frappe.ValidationError):
+				ticket._validate_purchase_order()
+
+	def test_sales_order_must_match_customer_origin(self):
+		ticket = self._new_ticket(first_weight=14500)
+		ticket.second_weight_datetime = "2099-01-01 15:30:00"
+		ticket.second_weight = 42000
+		ticket._set_calculated_fields()
+		ticket.origin_type = "Customer"
+		ticket.origin = "Expected Customer"
+		ticket.sales_order = "SAL-ORD-TEST"
+
+		with patch.object(
+			frappe.db,
+			"get_value",
+			return_value=frappe._dict(docstatus=1, status="To Deliver and Bill", customer="Other Customer"),
+		):
+			with self.assertRaises(frappe.ValidationError):
+				ticket._validate_sales_order()
 
 	def _new_ticket(self, date="2099-01-01", first_weight=50000):
 		return frappe.get_doc(

@@ -48,6 +48,9 @@ class WeightBridgeTicket(Document):
 		self._validate_order_references()
 		self._protect_finalized_fields()
 
+	def before_submit(self):
+		self._validate_ready_for_submission()
+
 	def on_update(self):
 		if getattr(frappe.flags, "weight_bridge_ticket_renaming", False):
 			return
@@ -185,6 +188,14 @@ class WeightBridgeTicket(Document):
 			frappe.throw(_("Sales Order {0} must be submitted.").format(frappe.bold(self.sales_order)))
 		if sales_order.status in ORDER_CLOSED_STATUSES:
 			frappe.throw(_("Sales Order {0} is {1}.").format(frappe.bold(self.sales_order), sales_order.status))
+		if self.origin_type == "Customer" and sales_order.customer != self.origin:
+			frappe.throw(
+				_("Sales Order {0} is for Customer {1}, not Origin {2}.").format(
+					frappe.bold(self.sales_order),
+					frappe.bold(sales_order.customer),
+					frappe.bold(self.origin),
+				)
+			)
 
 	def _set_driver_details(self):
 		if not self.driver:
@@ -252,6 +263,22 @@ class WeightBridgeTicket(Document):
 						self.meta.get_label(fieldname)
 					)
 				)
+
+	def _validate_ready_for_submission(self):
+		self._set_calculated_fields()
+
+		if (
+			not self._has_complete_weights()
+			or self.name.startswith("WB-")
+			or self.direction not in FINAL_DIRECTIONS
+			or self.ticket_status != "Finalized"
+		):
+			frappe.throw(
+				_(
+					"Weight Bridge Tickets can only be submitted after the second weight is captured "
+					"and the ticket has a final IN/OUT ID."
+				)
+			)
 
 	def _has_complete_weights(self):
 		return self._has_second_weight() and flt(self.first_weight) > 0 and flt(self.second_weight) > 0

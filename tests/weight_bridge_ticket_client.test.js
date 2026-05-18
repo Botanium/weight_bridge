@@ -9,17 +9,24 @@ const TICKET_SCRIPT_PATH = path.join(
 	"../weight_bridge/weight_bridge/doctype/weight_bridge_ticket/weight_bridge_ticket.js"
 );
 
-function createChain() {
+function createChain(label = "") {
 	const chain = {
 		0: {},
 		length: 1,
+		attrs: {},
+		classes: {},
+		props: {},
 		addClass() {
 			return this;
 		},
 		appendTo() {
 			return this;
 		},
-		attr() {
+		attr(name, value) {
+			if (arguments.length === 1) {
+				return this.attrs[name];
+			}
+			this.attrs[name] = value;
 			return this;
 		},
 		filter() {
@@ -40,7 +47,11 @@ function createChain() {
 		prependTo() {
 			return this;
 		},
-		prop() {
+		prop(name, value) {
+			if (arguments.length === 1) {
+				return this.props[name];
+			}
+			this.props[name] = value;
 			return this;
 		},
 		remove() {
@@ -49,10 +60,15 @@ function createChain() {
 		removeClass() {
 			return this;
 		},
-		text() {
-			return "";
+		text(value) {
+			if (arguments.length) {
+				label = value;
+				return this;
+			}
+			return label;
 		},
-		toggleClass() {
+		toggleClass(className, enabled) {
+			this.classes[className] = enabled;
 			return this;
 		},
 	};
@@ -68,6 +84,7 @@ function loadTicketScript(serialApi) {
 	const ticketScript = fs.readFileSync(TICKET_SCRIPT_PATH, "utf8");
 	const context = {
 		alerts: [],
+		msgprints: [],
 		console,
 		window: {
 			weight_bridge: {
@@ -120,6 +137,9 @@ function loadTicketScript(serialApi) {
 			show_alert(alert) {
 				context.alerts.push(alert);
 			},
+			msgprint(message) {
+				context.msgprints.push(message);
+			},
 			ui: {
 				form: {
 					on(doctype, handlers) {
@@ -135,6 +155,7 @@ function loadTicketScript(serialApi) {
 }
 
 function createFrm(doc = {}) {
+	const submitButton = createChain("Submit");
 	return {
 		doctype: "Weight Bridge Ticket",
 		doc: {
@@ -156,9 +177,16 @@ function createFrm(doc = {}) {
 		layout: {
 			message: createChain(),
 		},
+		page: {
+			btn_primary: submitButton,
+		},
 		set_df_property(fieldname, property, value) {
 			this.fields_dict[fieldname] = this.fields_dict[fieldname] || { df: {} };
 			this.fields_dict[fieldname].df[property] = value;
+		},
+		set_query(fieldname, query) {
+			this.queries = this.queries || {};
+			this.queries[fieldname] = query;
 		},
 		set_value(fieldname, value) {
 			this.doc[fieldname] = value;
@@ -236,6 +264,44 @@ test("ticket form tolerates older serial asset without stable-reading helpers", 
 	assert.equal(frm.doc.first_weight, 0);
 	assert.equal(frm.doc.second_weight, 0);
 	assert.equal(frm.doc.first_weight_datetime, "2099-01-01 10:00:00");
+});
+
+test("ticket form filters purchase and sales orders by selected origin party", () => {
+	const context = loadTicketScript(createFakeSerialApi());
+	const frm = createFrm({
+		origin_type: "Customer",
+		origin: "_Test Customer 1",
+	});
+
+	context.handlers.setup(frm);
+
+	assert.deepEqual(JSON.parse(JSON.stringify(frm.queries.sales_order().filters)), {
+		docstatus: 1,
+		status: ["not in", ["Cancelled", "Closed"]],
+		customer: "_Test Customer 1",
+	});
+
+	frm.doc.origin_type = "Supplier";
+	frm.doc.origin = "_Test Supplier";
+
+	assert.deepEqual(JSON.parse(JSON.stringify(frm.queries.purchase_order().filters)), {
+		docstatus: 1,
+		status: ["not in", ["Cancelled", "Closed"]],
+		supplier: "_Test Supplier",
+	});
+});
+
+test("ticket form clears PO and SO when origin changes", () => {
+	const context = loadTicketScript(createFakeSerialApi());
+	const frm = createFrm({
+		purchase_order: "PUR-ORD-TEST",
+		sales_order: "SAL-ORD-TEST",
+	});
+
+	context.handlers.origin(frm);
+
+	assert.equal(frm.doc.purchase_order, null);
+	assert.equal(frm.doc.sales_order, null);
 });
 
 test("ticket form captures second scale weight after first weight is saved", async () => {
@@ -321,4 +387,48 @@ test("ticket form Set buttons update the active weighing stage from the latest s
 	await flushPromises();
 
 	assert.equal(frm.doc.second_weight, 42125);
+});
+
+test("ticket form blocks submitting provisional WB tickets", () => {
+	const serialApi = createFakeSerialApi();
+	const context = loadTicketScript(serialApi);
+	const frm = createFrm({
+		__islocal: 0,
+		name: "WB-260518-01",
+		first_weight_datetime: "2099-01-01 10:00:00",
+		first_weight: 41890,
+		second_weight: 0,
+		ticket_status: "Pending Second Weight",
+	});
+
+	context.handlers.refresh(frm);
+	context.handlers.before_submit(frm);
+
+	assert.equal(context.frappe.validated, false);
+	assert.equal(frm.page.btn_primary.props.disabled, true);
+	assert.equal(frm.page.btn_primary.classes.disabled, true);
+	assert.match(frm.page.btn_primary.attrs.title, /second scale weight/i);
+	assert.equal(context.msgprints.length, 1);
+});
+
+test("ticket form allows submit only after final IN or OUT naming", () => {
+	const serialApi = createFakeSerialApi();
+	const context = loadTicketScript(serialApi);
+	const frm = createFrm({
+		__islocal: 0,
+		name: "IN-260518-01",
+		first_weight_datetime: "2099-01-01 10:00:00",
+		second_weight_datetime: "2099-01-01 12:00:00",
+		first_weight: 41890,
+		second_weight: 14000,
+		direction: "IN",
+		ticket_status: "Finalized",
+	});
+
+	context.handlers.refresh(frm);
+	context.handlers.before_submit(frm);
+
+	assert.notEqual(context.frappe.validated, false);
+	assert.equal(frm.page.btn_primary.props.disabled, false);
+	assert.equal(frm.page.btn_primary.classes.disabled, false);
 });

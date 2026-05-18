@@ -29,17 +29,36 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		});
 
 		frm.set_query("sales_order", () => {
-			return {
-				filters: {
-					docstatus: 1,
-					status: ["not in", ["Cancelled", "Closed"]],
-				},
+			const filters = {
+				docstatus: 1,
+				status: ["not in", ["Cancelled", "Closed"]],
 			};
+
+			if (frm.doc.origin_type === "Customer" && frm.doc.origin) {
+				filters.customer = frm.doc.origin;
+			}
+
+			return { filters };
 		});
 	},
 
 	before_save(frm) {
 		frm.weight_bridge_name_before_save = frm.doc.name;
+	},
+
+	before_submit(frm) {
+		if (is_ticket_ready_for_submission(frm)) {
+			return;
+		}
+
+		frappe.validated = false;
+		frappe.msgprint({
+			title: __("Second Weight Required"),
+			message: __(
+				"Capture and save the second scale weight first. A provisional WB ticket must stay in Draft."
+			),
+			indicator: "orange",
+		});
 	},
 
 	after_save(frm) {
@@ -72,6 +91,7 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
 		render_weight_capture_buttons(frm);
+		toggle_submit_action(frm);
 		initialize_scale_connection(frm);
 	},
 
@@ -79,26 +99,29 @@ frappe.ui.form.on("Weight Bridge Ticket", {
 		set_order_reference_visibility(frm);
 		set_dynamic_weight_labels(frm);
 		render_weight_capture_buttons(frm);
+		toggle_submit_action(frm);
 	},
 
 	second_weight(frm) {
 		set_order_reference_visibility(frm);
 		set_dynamic_weight_labels(frm);
 		render_weight_capture_buttons(frm);
+		toggle_submit_action(frm);
 	},
 
 	direction(frm) {
 		set_order_reference_visibility(frm);
 		set_dynamic_weight_labels(frm);
 		render_weight_capture_buttons(frm);
+		toggle_submit_action(frm);
 	},
 
 	origin_type(frm) {
-		clear_purchase_order_if_supplier_changed(frm);
+		clear_order_references_if_origin_changed(frm);
 	},
 
 	origin(frm) {
-		clear_purchase_order_if_supplier_changed(frm);
+		clear_order_references_if_origin_changed(frm);
 	},
 
 	set_first_weight_button(frm) {
@@ -150,9 +173,59 @@ function get_ticket_direction(frm) {
 	return frm.doc.direction;
 }
 
-function clear_purchase_order_if_supplier_changed(frm) {
+function is_ticket_ready_for_submission(frm) {
+	return Boolean(
+		frm.doc.docstatus === 0 &&
+			!frm.doc.__islocal &&
+			frm.doc.name &&
+			/^(IN|OUT)-/.test(frm.doc.name) &&
+			frm.doc.ticket_status === "Finalized" &&
+			["IN", "OUT"].includes(frm.doc.direction) &&
+			flt(frm.doc.first_weight) > 0 &&
+			flt(frm.doc.second_weight) > 0
+	);
+}
+
+function toggle_submit_action(frm) {
+	if (!frm.page || frm.doc.docstatus !== 0) {
+		return;
+	}
+
+	const apply_submit_state = () => {
+		const primary_action = frm.page?.btn_primary;
+		if (!primary_action?.length) {
+			return;
+		}
+
+		const label = primary_action.text ? primary_action.text().trim() : "";
+		if (label !== __("Submit")) {
+			return;
+		}
+
+		const ready = is_ticket_ready_for_submission(frm);
+		primary_action
+			.prop("disabled", !ready)
+			.toggleClass("disabled", !ready)
+			.attr(
+				"title",
+				ready
+					? ""
+					: __("Capture and save the second scale weight before submitting this ticket.")
+			);
+	};
+
+	apply_submit_state();
+	if (typeof setTimeout === "function") {
+		setTimeout(apply_submit_state, 0);
+	}
+}
+
+function clear_order_references_if_origin_changed(frm) {
 	if (frm.doc.purchase_order) {
 		frm.set_value("purchase_order", null);
+	}
+	if (frm.doc.sales_order) {
+		frm.set_value("sales_order", null);
 	}
 }
 
@@ -468,6 +541,7 @@ async function capture_scale_weight(frm, fieldname, reading, options = {}) {
 		set_dynamic_weight_labels(frm);
 		set_order_reference_visibility(frm);
 		render_weight_capture_buttons(frm);
+		toggle_submit_action(frm);
 		frappe.show_alert({
 			message: __("{0} {1} from stable scale reading: {2} Kg. Save the ticket.", [
 				get_field_label(frm, fieldname),
