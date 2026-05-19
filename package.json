@@ -1,7 +1,6 @@
 {
   "name": "weight_bridge_client_tests",
   "private": true,
-  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "test:serial": "node --test tests/*.test.js"
   }
