@@ -143,7 +143,7 @@ origin is a Supplier it filters by that supplier.
 
 For outbound tickets, only the `Sales Order` field is shown. The dropdown is
 filtered to submitted orders that are not closed or cancelled, and when the
-destination is a Customer it filters by that customer.
+origin is a Customer it filters by that customer.
 
 After the final `IN` or `OUT` ID is generated, the weighing fields that determine
 the ticket ID and direction are locked.
@@ -152,7 +152,7 @@ the ticket ID and direction are locked.
 
 ```bash
 bench --site $SITE_NAME run-tests --app weight_bridge
-npm run test:serial
+node --test tests/*.test.js
 ```
 
 ## License
